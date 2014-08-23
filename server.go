@@ -10,7 +10,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/ziutek/serial"
+	"github.com/chimera/rs232"
 )
 
 type Proxy struct {
@@ -50,34 +50,86 @@ func (s *Proxy) Listen() {
 }
 
 func (s Proxy) handleConnection(conn net.Conn) {
+	log.SetPrefix("conn: ")
 	defer conn.Close()
 
 	var reader io.Reader
 	var writer io.Writer
 
+	// set up encryption
 	if s.encrypt {
-		block, err := aes.NewCipher(s.secretHash)
-		if err != nil {
-			panic(err)
-		}
 
+		// generate IV
 		iv := make([]byte, aes.BlockSize)
 		if _, err := rand.Read(iv); err != nil {
 			panic(err)
 		}
 
-		log.Printf("%x", iv)
+		// send IV to client
+		conn.Write(iv)
 
+		// debug
+		log.Printf("iv: %x", iv)
+
+		// create AES-128 cipher
+		block, err := aes.NewCipher(s.secretHash)
+		if err != nil {
+			panic(err)
+		}
+
+		// initialize stream
 		stream := cipher.NewOFB(block, iv)
 		reader = &cipher.StreamReader{S: stream, R: conn}
 		writer = &cipher.StreamWriter{S: stream, W: conn}
-
-		conn.Write(iv)
 	} else {
 		reader = conn
 		writer = conn
 	}
 
-	_ = reader
-	_ = writer
+	// open serial port
+	p, err := rs232.Open(s.SerialPort, rs232.Options{
+		BitRate:  230400,
+		DataBits: 8,
+		StopBits: 1,
+		Parity:   rs232.PARITY_NONE,
+		Timeout:  1,
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer p.Close()
+
+	done := make(chan bool, 1)
+	closed := false
+
+	// serial -> conn
+	go func() {
+		if c, err := io.Copy(writer, p); err != nil {
+			if closed {
+				log.Print("download: ", c, " (closed) ", err)
+			} else {
+				log.Print("download: ", c, " ", err)
+			}
+		} else {
+			log.Print("download: ", c)
+		}
+		done <- true
+	}()
+
+	// conn -> serial
+	go func() {
+		if c, err := io.Copy(p, reader); err != nil {
+			if closed {
+				log.Print("upload: ", c, " (closed) ", err)
+			} else {
+				log.Print("upload: ", c, " ", err)
+			}
+		} else {
+			log.Print("upload: ", c)
+		}
+		done <- true
+	}()
+
+	<-done
+	closed = true
 }

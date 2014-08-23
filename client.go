@@ -39,27 +39,44 @@ func (c Client) handleConnection(conn net.Conn) {
 	var reader io.Reader
 	var writer io.Writer
 
+	// set up encryption
 	if c.encrypt {
-		block, err := aes.NewCipher(c.secretHash)
-		if err != nil {
-			panic(err)
-		}
 
+		// receive IV from server
 		iv := make([]byte, aes.BlockSize)
 		if _, err := conn.Read(iv); err != nil {
 			panic(err)
 		}
 
+		// debug
+		log.Printf("iv: %x", iv)
+
+		// create AES-128 cipher
+		block, err := aes.NewCipher(c.secretHash)
+		if err != nil {
+			panic(err)
+		}
+
+		// initialize stream
 		stream := cipher.NewOFB(block, iv)
 		reader = &cipher.StreamReader{S: stream, R: conn}
 		writer = &cipher.StreamWriter{S: stream, W: conn}
-
-		log.Printf("%x", iv)
 	} else {
 		reader = conn
 		writer = conn
 	}
 
-	_ = reader
-	_ = writer
+	// do something
+	if c, err := writer.Write([]byte{0}); err != nil {
+		log.Print("write: ", err)
+	} else {
+		log.Print("write: ", c)
+	}
+
+	buf := make([]byte, 1)
+	if c, err := reader.Read(buf); err != nil {
+		log.Print("read: ", err)
+	} else {
+		log.Print("read: ", c, " ", buf)
+	}
 }
