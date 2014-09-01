@@ -9,7 +9,7 @@ const (
 	MOTION_STOP MsgMotionMethod = iota
 	MOTION_STATUS_REQ
 	MOTION_QUEUE_SETPOINT
-	MOTION_QUEUE_NEXT
+	MOTION_QUEUE_NEXT // not implemented by StarFish
 )
 
 const (
@@ -43,7 +43,7 @@ type MsgMotionResp struct {
 	Angle       float32 // radians
 	Omega       float32 // radians/sec
 	Duration    float32 // seconds
-	LoopIndex   uint8
+	LoopIndex   uint8   // not implemented by StarFish
 	Reserved1__ [3]uint8
 	Torque      float32 // Neuton-metres
 	Current     float32 // amperes
