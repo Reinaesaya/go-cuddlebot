@@ -22,8 +22,8 @@ type MsgMotionReq struct {
 	MsgHeader
 	MotionMethod MsgMotionMethod
 	Reserved0__  uint8
-	Position     float32 // radians
-	Velocity     float32 // radians/sec
+	Angle        float32 // radians
+	Omega        float32 // radians/sec
 	Duration     float32 // seconds
 	Reserved1__  uint8
 	SkinDVal     uint8
@@ -38,8 +38,8 @@ type MsgMotionResp struct {
 	MsgHeader
 	Status      MsgStatus
 	Reserved0__ uint8
-	Position    float32 // radians
-	Velocity    float32 // radians/sec
+	Angle       float32 // radians
+	Omega       float32 // radians/sec
 	Duration    float32 // seconds
 	LoopIndex   uint8
 	Reserved1__ [3]uint8
