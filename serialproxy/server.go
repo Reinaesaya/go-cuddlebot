@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-type Proxy struct {
+type Server struct {
 	Addr       string
 	Secret     string
 	SerialPort string
@@ -21,7 +21,7 @@ type Proxy struct {
 	secretHash []byte
 }
 
-func (s *Proxy) Listen() {
+func (s *Server) Listen() {
 	var proto string
 	if strings.HasPrefix(s.Addr, "/") {
 		proto = "unix"
@@ -63,7 +63,7 @@ func (s *Proxy) Listen() {
 	log.Printf("Got %v signal, shutting down", sig)
 }
 
-func (s Proxy) handleConnection(conn net.Conn) {
+func (s Server) handleConnection(conn net.Conn) {
 	log.SetPrefix("conn: ")
 	defer conn.Close()
 

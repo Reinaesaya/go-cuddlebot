@@ -1,8 +1,9 @@
 package main
 
 import (
-	tsp ".."
 	"flag"
+
+	. "cs.ubc.ca/spin/cuddlebot/serialproxy"
 )
 
 var addr = flag.String("addr", ":3641", "tcp service address")
@@ -12,7 +13,7 @@ var serialPort = flag.String("port", "", "path to serial port device")
 func main() {
 	flag.Parse()
 
-	proxy := &tsp.Proxy{
+	proxy := &Server{
 		Addr:       *addr,
 		Secret:     *secret,
 		SerialPort: *serialPort,
