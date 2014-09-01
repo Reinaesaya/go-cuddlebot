@@ -16,12 +16,17 @@ type Server struct {
 	Addr       string
 	Secret     string
 	SerialPort string
+	Logger     *log.Logger
 
 	encrypt    bool
 	secretHash []byte
 }
 
 func (s *Server) Listen() {
+	if s.Logger == nil {
+		s.Logger = log.New(os.Stderr, "[serialproxy] ", log.LstdFlags)
+	}
+
 	var proto string
 	if strings.HasPrefix(s.Addr, "/") {
 		proto = "unix"
@@ -42,13 +47,13 @@ func (s *Server) Listen() {
 		s.secretHash = h.Sum(nil)
 	}
 
-	log.Printf("Listening on %s %s", proto, s.Addr)
+	s.Logger.Printf("Listening on %s %s", proto, s.Addr)
 
 	go func() {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				log.Fatal(err)
+				s.Logger.Fatal(err)
 			}
 			defer conn.Close()
 			// no goroutines; only accept one connection at a time
@@ -60,11 +65,10 @@ func (s *Server) Listen() {
 	signotify := make(chan os.Signal, 1)
 	signal.Notify(signotify, os.Interrupt, os.Kill)
 	sig := <-signotify
-	log.Printf("Got %v signal, shutting down", sig)
+	s.Logger.Printf("Got %v signal, shutting down", sig)
 }
 
 func (s Server) handleConnection(conn net.Conn) {
-	log.SetPrefix("conn: ")
 	defer conn.Close()
 
 	var c io.ReadWriter
@@ -94,18 +98,18 @@ func (s Server) handleConnection(conn net.Conn) {
 	defer port.Close()
 
 	// pipe data to/from conn and port
-	pipe(port, c)
+	s.pipe(port, c)
 }
 
 // Pipe I/O to/from remote and local
-func pipe(local io.ReadWriter, remote io.ReadWriter) {
+func (s *Server) pipe(local io.ReadWriter, remote io.ReadWriter) {
 	var wg sync.WaitGroup
 
 	// remote -> local
 	go func() {
 		wg.Add(1)
 		c, err := io.Copy(local, remote)
-		log.Printf("remote -> local (%d): %v", c, err)
+		s.Logger.Printf("serialproxy: conn: remote -> local (%d): %v", c, err)
 		wg.Done()
 	}()
 
@@ -113,7 +117,7 @@ func pipe(local io.ReadWriter, remote io.ReadWriter) {
 	go func() {
 		wg.Add(1)
 		c, err := io.Copy(remote, local)
-		log.Printf("local -> remote (%d): %v", c, err)
+		s.Logger.Printf("serialproxy: conn: local -> remote (%d): %v", c, err)
 		wg.Done()
 	}()
 
