@@ -106,16 +106,16 @@ func (s *Server) pipe(local io.ReadWriter, remote io.ReadWriter) {
 	var wg sync.WaitGroup
 
 	// remote -> local
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		c, err := io.Copy(local, remote)
 		s.Logger.Printf("serialproxy: conn: remote -> local (%d): %v", c, err)
 		wg.Done()
 	}()
 
 	// local -> remote
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		c, err := io.Copy(remote, local)
 		s.Logger.Printf("serialproxy: conn: local -> remote (%d): %v", c, err)
 		wg.Done()
