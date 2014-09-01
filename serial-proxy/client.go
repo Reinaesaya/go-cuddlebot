@@ -1,12 +1,11 @@
 package tserialproxy
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/md5"
 	"io"
 	"log"
 	"net"
+	"strings"
 )
 
 type Client struct {
@@ -18,7 +17,14 @@ type Client struct {
 }
 
 func (c *Client) Connect() {
-	conn, err := net.Dial("tcp", c.Addr)
+	var proto string
+	if strings.HasPrefix(c.Addr, "/") {
+		proto = "unix"
+	} else {
+		proto = "tcp"
+	}
+
+	conn, err := net.Dial(proto, c.Addr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -32,51 +38,29 @@ func (c *Client) Connect() {
 		c.secretHash = h.Sum(nil)
 	}
 
-	c.handleConnection(conn)
-}
+	log.Printf("Connecting to %s %s", proto, c.Addr)
 
-func (c Client) handleConnection(conn net.Conn) {
-	var reader io.Reader
-	var writer io.Writer
+	var p io.ReadWriter
 
 	// set up encryption
 	if c.encrypt {
-
-		// receive IV from server
-		iv := make([]byte, aes.BlockSize)
-		if _, err := conn.Read(iv); err != nil {
-			panic(err)
+		ec, iv, err := encryptClient(conn, c.secretHash)
+		if err != nil {
+			log.Fatal(err)
 		}
+		p = ec
 
 		// debug
-		log.Printf("iv: %x", iv)
-
-		// create AES-128 cipher
-		block, err := aes.NewCipher(c.secretHash)
-		if err != nil {
-			panic(err)
-		}
-
-		// initialize stream
-		stream := cipher.NewOFB(block, iv)
-		reader = &cipher.StreamReader{S: stream, R: conn}
-		writer = &cipher.StreamWriter{S: stream, W: conn}
+		log.Printf("debug: iv: %x", iv)
 	} else {
-		reader = conn
-		writer = conn
+		p = conn
 	}
 
 	// do something
-	if c, err := writer.Write([]byte{0}); err != nil {
-		log.Print("write: ", err)
-	} else {
-		log.Print("write: ", c)
-	}
+	count, err := p.Write([]byte{0})
+	log.Printf("write (%d): %v", count, err)
 
 	buf := make([]byte, 1)
-	if c, err := reader.Read(buf); err != nil {
-		log.Print("read: ", err)
-	} else {
-		log.Print("read: ", c, " ", buf)
-	}
+	count, err = p.Read(buf)
+	log.Printf("write (%d): %v", count, err)
 }
