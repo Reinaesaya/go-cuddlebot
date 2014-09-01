@@ -1,5 +1,7 @@
 package starfish
 
+import "io"
+
 type MsgConfigMethod uint8
 type MsgFeedbackType uint8
 
@@ -57,6 +59,14 @@ func (m *MsgConfigReq) Update() error {
 	return nil
 }
 
+func (m *MsgConfigReq) ReadFrom(r io.Reader) (int64, error) {
+	return ReadFrom(m, r)
+}
+
+func (m *MsgConfigReq) WriteTo(w io.Writer) (int64, error) {
+	return WriteTo(m, w)
+}
+
 func (m *MsgConfigReq) UnmarshalBinary(data []byte) error {
 	return unmartialBinary(m, data)
 }
@@ -75,6 +85,14 @@ func (m *MsgConfigResp) Validate() error {
 func (m *MsgConfigResp) Update() error {
 	m.Type = MSG_CONFIG_RESP
 	return nil
+}
+
+func (m *MsgConfigResp) ReadFrom(r io.Reader) (int64, error) {
+	return ReadFrom(m, r)
+}
+
+func (m *MsgConfigResp) WriteTo(w io.Writer) (int64, error) {
+	return WriteTo(m, w)
 }
 
 func (m *MsgConfigResp) UnmarshalBinary(data []byte) error {

@@ -1,5 +1,7 @@
 package starfish
 
+import "io"
+
 type MsgType uint8
 type MsgAddress uint8
 
@@ -44,6 +46,14 @@ func (m *MsgHeader) Validate() error {
 		return InvalidAddressError
 	}
 	return nil
+}
+
+func (m *MsgHeader) ReadFrom(r io.Reader) (int64, error) {
+	return ReadFrom(m, r)
+}
+
+func (m *MsgHeader) WriteTo(w io.Writer) (int64, error) {
+	return WriteTo(m, w)
 }
 
 func (m *MsgHeader) UnmartialBinary(data []byte) error {

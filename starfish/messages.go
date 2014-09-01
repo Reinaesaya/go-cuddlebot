@@ -20,36 +20,41 @@ var InsufficientBytesError = errors.New("Insufficient bytes")
 var InvalidMessageError = errors.New("Invalid message")
 var InvalidAddressError = errors.New("Invalid address")
 
-func Read(m interface{}, r io.Reader) error {
-	// read into struct
-	if err := binary.Read(r, binary.LittleEndian, m); err != nil {
-		return err
+// Read into struct using BinaryUnmarshaler interface to invoke
+// validation.
+func ReadFrom(m interface{}, r io.Reader) (int64, error) {
+	size := binary.Size(m)
+	switch m.(type) {
+	case encoding.BinaryUnmarshaler:
+		// read into buffer
+		buf := make([]byte, 0, size)
+		if _, err := io.ReadFull(r, buf); err != nil {
+			return 0, err
+		}
+		// use marshaler to validate checksum
+		return int64(size), m.(encoding.BinaryUnmarshaler).UnmarshalBinary(buf)
+	default:
+		return int64(size), binary.Read(r, binary.LittleEndian, m)
 	}
-	// validate if validated message
-	return validate(m)
 }
 
-func Write(m interface{}, w io.Writer) error {
-	// use marshaler to calculate checksum
+// Write struct using BinaryMarshaler interface to calculate checksum.
+func WriteTo(m interface{}, w io.Writer) (int64, error) {
+	size := binary.Size(m)
 	switch m.(type) {
 	case encoding.BinaryMarshaler:
-		if buf, err := m.(encoding.BinaryMarshaler).MarshalBinary(); err != nil {
-			return err
-		} else {
-			_, err = w.Write(buf)
-			return err
+		// use marshaler to calculate checksum
+		buf, err := m.(encoding.BinaryMarshaler).MarshalBinary()
+		if err != nil {
+			return 0, err
 		}
+		// write buffer data
+		n, err := w.Write(buf)
+		return int64(n), err
+	default:
+		// support other types by default
+		return int64(size), binary.Write(w, binary.LittleEndian, m)
 	}
-	// should not reach here
-	return InvalidMessageError
-}
-
-func validate(m interface{}) error {
-	switch m.(type) {
-	case ValidatedMessage:
-		return m.(ValidatedMessage).Validate()
-	}
-	return nil
 }
 
 func unmartialBinary(m interface{}, data []byte) error {
@@ -96,6 +101,14 @@ func martialBinary(m interface{}) ([]byte, error) {
 	}
 
 	return w.Bytes(), nil
+}
+
+func validate(m interface{}) error {
+	switch m.(type) {
+	case ValidatedMessage:
+		return m.(ValidatedMessage).Validate()
+	}
+	return nil
 }
 
 func validateChecksum(b []byte, size int) error {

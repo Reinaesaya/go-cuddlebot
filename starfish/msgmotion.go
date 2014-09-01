@@ -1,5 +1,7 @@
 package starfish
 
+import "io"
+
 type MsgMotionMethod uint8
 type MsgStatus uint8
 
@@ -68,6 +70,14 @@ func (m *MsgMotionReq) Update() error {
 	return nil
 }
 
+func (m *MsgMotionReq) ReadFrom(r io.Reader) (int64, error) {
+	return ReadFrom(m, r)
+}
+
+func (m *MsgMotionReq) WriteTo(w io.Writer) (int64, error) {
+	return WriteTo(m, w)
+}
+
 func (m *MsgMotionReq) UnmarshalBinary(data []byte) error {
 	return unmartialBinary(m, data)
 }
@@ -86,6 +96,14 @@ func (m *MsgMotionResp) Validate() error {
 func (m *MsgMotionResp) Update() error {
 	m.Type = MSG_MOTION_RESP
 	return nil
+}
+
+func (m *MsgMotionResp) ReadFrom(r io.Reader) (int64, error) {
+	return ReadFrom(m, r)
+}
+
+func (m *MsgMotionResp) WriteTo(w io.Writer) (int64, error) {
+	return WriteTo(m, w)
 }
 
 func (m *MsgMotionResp) UnmarshalBinary(data []byte) error {
