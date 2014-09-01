@@ -1,4 +1,4 @@
-package tserialproxy
+package serialproxy
 
 import (
 	"crypto/md5"

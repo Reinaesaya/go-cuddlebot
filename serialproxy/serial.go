@@ -1,5 +1,4 @@
-// Securely exposes a local serial port on the network
-package tserialproxy
+package serialproxy
 
 import (
 	"io"

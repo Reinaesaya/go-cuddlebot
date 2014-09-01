@@ -1,5 +1,4 @@
-// Securely exposes a local serial port on the network
-package tserialproxy
+package serialproxy
 
 import (
 	"crypto/aes"
@@ -7,11 +6,6 @@ import (
 	"crypto/rand"
 	"io"
 )
-
-type readWriter struct {
-	io.Reader
-	io.Writer
-}
 
 // Encrypt the pipe using AES128
 func encrypt(pipe io.ReadWriter, secret []byte, iv []byte) (io.ReadWriter, error) {
