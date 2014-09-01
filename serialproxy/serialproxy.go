@@ -6,13 +6,16 @@ local serial port over the network.
 */
 package serialproxy
 
+import (
+	"io"
+)
+
 type readWriter struct {
 	io.Reader
 	io.Writer
 }
 
 type readWriteCloser struct {
-	io.Reader
-	io.Writer
+	io.ReadWriter
 	io.Closer
 }

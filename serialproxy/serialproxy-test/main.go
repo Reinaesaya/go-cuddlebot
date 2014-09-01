@@ -17,5 +17,19 @@ func main() {
 		Secret: *secret,
 	}
 
-	client.Connect()
+	log.Printf("Connecting to %s", client.Addr)
+
+	p, err := client.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer p.Close()
+
+	// do something
+	count, err := p.Write([]byte{0})
+	log.Printf("write (%d): %v", count, err)
+
+	buf := make([]byte, 1)
+	count, err = p.Read(buf)
+	log.Printf("write (%d): %v", count, err)
 }
