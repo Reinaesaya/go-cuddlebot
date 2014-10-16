@@ -1,4 +1,4 @@
-package cuddlespeak
+package msgtype
 
 import (
 	"encoding/binary"
@@ -33,25 +33,25 @@ type Setpoint struct {
 	Setpoint uint16 // offset 0x02, setpoint
 }
 
-/* Writer wrapper. */
-type Writer struct {
+/* RPC wrapper. */
+type RPC struct {
 	io.Writer
 }
 
 /* Write ping message. */
-func (w *Writer) WritePing(addr uint8) error {
+func (w *RPC) Ping(addr uint8) error {
 	return binary.Write(w, binary.LittleEndian,
 		[]byte{addr, kPing, 0, 0, 0, 0})
 }
 
 /* Write pong message. */
-func (w *Writer) WritePong(addr uint8) error {
+func (w *RPC) Pong(addr uint8) error {
 	return binary.Write(w, binary.LittleEndian,
 		[]byte{addr, kPong, 0, 0, 0, 0})
 }
 
 /* Write set PID message. */
-func (w *Writer) WriteSetPID(addr uint8, kp, ki, kd float32) error {
+func (w *RPC) SetPID(addr uint8, kp, ki, kd float32) error {
 	// write header
 	header := []uint8{addr, kSetPID, 12, 0}
 	if err := binary.Write(w, binary.LittleEndian, header); err != nil {
@@ -70,7 +70,7 @@ func (w *Writer) WriteSetPID(addr uint8, kp, ki, kd float32) error {
 }
 
 /* Write set Setpoint message. */
-func (w *Writer) WriteSetpoint(
+func (w *RPC) Setpoint(
 	addr uint8, delay, loop uint16, setpoints []Setpoint) error {
 
 	// write header
@@ -99,13 +99,13 @@ func (w *Writer) WriteSetpoint(
 }
 
 /* Write set test message. */
-func (w *Writer) WriteTest(addr uint8) error {
+func (w *RPC) RunTests(addr uint8) error {
 	return binary.Write(w, binary.LittleEndian,
 		[]byte{addr, kTest, 0, 0, 0, 0})
 }
 
 /* Write set value message. */
-func (w *Writer) WriteValue(addr uint8) error {
+func (w *RPC) RequestPosition(addr uint8) error {
 	return binary.Write(w, binary.LittleEndian,
 		[]byte{addr, kValue, 0, 0, 0, 0})
 }
