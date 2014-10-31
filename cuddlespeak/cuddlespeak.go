@@ -1,13 +1,15 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"os"
 	"path"
+	"time"
 
 	"github.com/mikepb/go-serial"
 
@@ -25,6 +27,8 @@ func main() {
 	headx := flag.Bool("headx", false, "send command to head yaw actuator")
 	heady := flag.Bool("heady", false, "send command to head pitch actuator")
 
+	portname := flag.String("port", "/dev/ttyUSB0", "the serial port name")
+
 	// parse flags
 	flag.Usage = usage
 	flag.Parse()
@@ -37,8 +41,7 @@ func main() {
 	}
 
 	// open serial port
-	portname := flag.Arg(0)
-	port, err := serial.Open(portname, serial.Options{
+	port, err := serial.Open(*portname, serial.Options{
 		Baudrate: 115200,
 		DataBits: 8,
 		StopBits: 1,
@@ -47,35 +50,32 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	} else if *debug {
-		log.Printf("opened %s", portname)
+		log.Printf("opened %s", *portname)
 	}
 	defer port.Close()
 
-	// buffer output
-	bw := bufio.NewWriter(port)
-
 	// rpc wrapper
-	rpc := msgtype.RPC{Writer: bw}
+	rpc := msgtype.RPC{Reader: port, Writer: port}
+
+	// net wrapper
+	conn := net.Conn(port)
 
 	// run command
 	switch true {
 	case *ribs:
-		runcmd(rpc, msgtype.ADDR_RIBS)
+		runcmd(rpc, conn, msgtype.ADDR_RIBS)
 	case *purr:
-		runcmd(rpc, msgtype.ADDR_PURR)
+		runcmd(rpc, conn, msgtype.ADDR_PURR)
 	case *spine:
-		runcmd(rpc, msgtype.ADDR_SPINE)
+		runcmd(rpc, conn, msgtype.ADDR_SPINE)
 	case *headx:
-		runcmd(rpc, msgtype.ADDR_HEAD_YAW)
+		runcmd(rpc, conn, msgtype.ADDR_HEAD_YAW)
 	case *heady:
-		runcmd(rpc, msgtype.ADDR_HEAD_PITCH)
+		runcmd(rpc, conn, msgtype.ADDR_HEAD_PITCH)
 	}
-
-	// flush output
-	bw.Flush()
 }
 
-func runcmd(rpc msgtype.RPC, addr uint8) {
+func runcmd(rpc msgtype.RPC, conn net.Conn, addr uint8) {
 	// run command
 	switch flag.Arg(1) {
 	case "setpid":
@@ -136,10 +136,18 @@ func runcmd(rpc msgtype.RPC, addr uint8) {
 
 	case "ping":
 		rpc.Ping(addr)
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		io.Copy(os.Stdout, conn)
+
 	case "test":
 		rpc.RunTests(addr)
+		conn.SetReadDeadline(time.Now().Add(time.Minute * 5))
+		io.Copy(os.Stdout, conn)
+
 	case "value":
 		rpc.RequestPosition(addr)
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		io.Copy(os.Stdout, conn)
 
 	default:
 		fatalUsage()
@@ -154,7 +162,7 @@ var header = `Cuddlespeak is a tool for testing the Cuddlebot actuators.
 
 Usage:
 
-    %s [flags] port command [arguments]
+    %s [flags] command [arguments]
 
 The flags are:
 
@@ -189,16 +197,16 @@ The setpoint command accepts these arguments:
 
 Examples:
 
-    $ %s -ribs /dev/ttyUSB0 setpid 40.4 1.0 -1.0
+    $ %s -ribs setpid 40.4 1.0 -1.0
 
-    $ %s -ribs /dev/ttyUSB0 setpoint 0 forever 1000 26075 1000 0
+    $ %s -ribs setpoint 0 forever 1000 26075 1000 0
 
-    $ %s -ribs /dev/ttyUSB0 ping
+    $ %s -ribs ping
 
-    $ %s -ribs /dev/ttyUSB0 test
+    $ %s -ribs test
     ... test results ...
 
-    $ %s -ribs /dev/ttyUSB0 value
+    $ %s -ribs value
     0.1
 
 `
