@@ -38,22 +38,16 @@ type Setpoint struct {
 	Setpoint uint16 // offset 0x02, setpoint
 }
 
-/* RPC wrapper. */
-type RPC struct {
-	io.Reader
-	io.Writer
-}
-
 /* Invalid message error. */
 var InvalidMessageError = errors.New("Invalid message")
 
 /* Write ping message. */
-func (w *RPC) Ping(addr uint8) error {
-	return w.writeSimpleAddressedMessage(addr, kPing)
+func WritePing(w io.Writer, addr uint8) error {
+	return writeSimpleAddressedMessage(w, addr, kPing)
 }
 
 /* Write set PID message. */
-func (w *RPC) SetPID(addr uint8, kp, ki, kd float32) error {
+func WriteSetPID(w io.Writer, addr uint8, kp, ki, kd float32) error {
 	h := crc32.NewIEEE()
 	bw := bufio.NewWriterSize(w, 18)
 	mw := io.MultiWriter(bw, h)
@@ -77,7 +71,7 @@ func (w *RPC) SetPID(addr uint8, kp, ki, kd float32) error {
 }
 
 /* Write set Setpoint message. */
-func (w *RPC) Setpoint(
+func WriteSetpoint(w io.Writer,
 	addr uint8, delay, loop uint16, setpoints []Setpoint) error {
 	nsetpoints := len(setpoints)
 
@@ -117,17 +111,17 @@ func (w *RPC) Setpoint(
 }
 
 /* Write set test message. */
-func (w *RPC) RunTests(addr uint8) error {
-	return w.writeSimpleAddressedMessage(addr, kTest)
+func WriteRunTests(w io.Writer, addr uint8) error {
+	return writeSimpleAddressedMessage(w, addr, kTest)
 }
 
 /* Write set value message. */
-func (w *RPC) RequestPosition(addr uint8) error {
-	return w.writeSimpleAddressedMessage(addr, kValue)
+func WriteRequestPosition(w io.Writer, addr uint8) error {
+	return writeSimpleAddressedMessage(w, addr, kValue)
 }
 
 /* Write simple message. */
-func (w *RPC) writeSimpleAddressedMessage(addr, msgtype uint8) error {
+func writeSimpleAddressedMessage(w io.Writer, addr, msgtype uint8) error {
 	h := crc32.NewIEEE()
 	bw := bufio.NewWriterSize(w, 6)
 	mw := io.MultiWriter(bw, h)

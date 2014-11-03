@@ -34,7 +34,7 @@ func main() {
 	flag.Parse()
 
 	if flag.NArg() < 2 {
-		os.Exit(1)
+		fatalUsage()
 	} else if *help {
 		flag.Usage()
 		os.Exit(0)
@@ -54,28 +54,25 @@ func main() {
 	}
 	defer port.Close()
 
-	// rpc wrapper
-	rpc := msgtype.RPC{Reader: port, Writer: port}
-
 	// net wrapper
 	conn := net.Conn(port)
 
 	// run command
 	switch true {
 	case *ribs:
-		runcmd(rpc, conn, msgtype.ADDR_RIBS)
+		runcmd(conn, msgtype.ADDR_RIBS)
 	case *purr:
-		runcmd(rpc, conn, msgtype.ADDR_PURR)
+		runcmd(conn, msgtype.ADDR_PURR)
 	case *spine:
-		runcmd(rpc, conn, msgtype.ADDR_SPINE)
+		runcmd(conn, msgtype.ADDR_SPINE)
 	case *headx:
-		runcmd(rpc, conn, msgtype.ADDR_HEAD_YAW)
+		runcmd(conn, msgtype.ADDR_HEAD_YAW)
 	case *heady:
-		runcmd(rpc, conn, msgtype.ADDR_HEAD_PITCH)
+		runcmd(conn, msgtype.ADDR_HEAD_PITCH)
 	}
 }
 
-func runcmd(rpc msgtype.RPC, conn net.Conn, addr uint8) {
+func runcmd(conn net.Conn, addr uint8) {
 	// run command
 	switch flag.Arg(1) {
 	case "setpid":
@@ -92,7 +89,7 @@ func runcmd(rpc msgtype.RPC, conn net.Conn, addr uint8) {
 			log.Printf("parsed pid kp=%f ki=%f kd=%f", kp, ki, kd)
 		}
 
-		rpc.SetPID(addr, kp, ki, kd)
+		msgtype.WriteSetPID(conn, addr, kp, ki, kd)
 
 	case "setpoint":
 		if flag.NArg() < 6 {
@@ -132,20 +129,20 @@ func runcmd(rpc msgtype.RPC, conn net.Conn, addr uint8) {
 			setpoints[j].Setpoint = uint16(setpoint)
 		}
 
-		rpc.Setpoint(addr, delay, loop, setpoints)
+		msgtype.WriteSetpoint(conn, addr, delay, loop, setpoints)
 
 	case "ping":
-		rpc.Ping(addr)
+		msgtype.WritePing(conn, addr)
 		conn.SetReadDeadline(time.Now().Add(time.Second))
 		io.Copy(os.Stdout, conn)
 
 	case "test":
-		rpc.RunTests(addr)
+		msgtype.WriteRunTests(conn, addr)
 		conn.SetReadDeadline(time.Now().Add(time.Minute * 5))
 		io.Copy(os.Stdout, conn)
 
 	case "value":
-		rpc.RequestPosition(addr)
+		msgtype.WriteRequestPosition(conn, addr)
 		conn.SetReadDeadline(time.Now().Add(time.Second))
 		io.Copy(os.Stdout, conn)
 

@@ -2,18 +2,19 @@ package msgtype
 
 import (
 	"bytes"
+	"io"
 	"testing"
 )
 
 func TestPing(t *testing.T) {
-	writeExpect(t, func(w RPC) error {
-		return w.Ping(3)
+	writeExpect(t, func(w io.Writer) error {
+		return WritePing(w, 3)
 	}, []byte{3, '?', 0, 0, 95, 210})
 }
 
 func TestSetPID(t *testing.T) {
-	writeExpect(t, func(w RPC) error {
-		return w.SetPID(2, 1.0, 2.0, 3.0)
+	writeExpect(t, func(w io.Writer) error {
+		return WriteSetPID(w, 2, 1.0, 2.0, 3.0)
 	}, []byte{2, 'c', 12, 0, 0, 0, 128, 63, 0, 0, 0, 64, 0, 0, 64, 64, 95, 128})
 }
 
@@ -21,14 +22,13 @@ func TestSetpoint(t *testing.T) {
 	// no setpoints
 	{
 		var b bytes.Buffer
-		w := RPC{Writer: &b}
-		if err := w.Setpoint(4, 13, 0xffff, []Setpoint{}); err == nil {
+		if err := WriteSetpoint(&b, 4, 13, 0xffff, []Setpoint{}); err == nil {
 			t.Fatal("Setpoint did not return an error for empty set")
 		}
 	}
 	// one setpoint
-	writeExpect(t, func(w RPC) error {
-		return w.Setpoint(4, 13, 0xffff, []Setpoint{
+	writeExpect(t, func(w io.Writer) error {
+		return WriteSetpoint(w, 4, 13, 0xffff, []Setpoint{
 			Setpoint{Duration: 16, Setpoint: 8},
 		})
 	}, []byte{
@@ -38,8 +38,8 @@ func TestSetpoint(t *testing.T) {
 		239, 11,
 	})
 	// three setpoint
-	writeExpect(t, func(w RPC) error {
-		return w.Setpoint(4, 13, 0xffff, []Setpoint{
+	writeExpect(t, func(w io.Writer) error {
+		return WriteSetpoint(w, 4, 13, 0xffff, []Setpoint{
 			Setpoint{Duration: 16, Setpoint: 8},
 			Setpoint{Duration: 17, Setpoint: 95},
 			Setpoint{Duration: 1000, Setpoint: 256},
@@ -55,21 +55,20 @@ func TestSetpoint(t *testing.T) {
 }
 
 func TestRunTests(t *testing.T) {
-	writeExpect(t, func(w RPC) error {
-		return w.RunTests(7)
+	writeExpect(t, func(w io.Writer) error {
+		return WriteRunTests(w, 7)
 	}, []byte{7, 't', 0, 0, 41, 39})
 }
 
 func TestRequestPosition(t *testing.T) {
-	writeExpect(t, func(w RPC) error {
-		return w.RequestPosition(1)
+	writeExpect(t, func(w io.Writer) error {
+		return WriteRequestPosition(w, 1)
 	}, []byte{1, 'v', 0, 0, 155, 172})
 }
 
-func writeExpect(t *testing.T, f func(RPC) error, expect []byte) {
+func writeExpect(t *testing.T, f func(io.Writer) error, expect []byte) {
 	var b bytes.Buffer
-	w := RPC{Writer: &b}
-	if err := f(w); err != nil {
+	if err := f(&b); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("Bytes: %v", b.Bytes())
