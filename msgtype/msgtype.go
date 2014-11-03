@@ -2,6 +2,7 @@ package msgtype
 
 import (
 	"bufio"
+	// "bytes"
 	"encoding/binary"
 	"errors"
 	"hash/crc32"
@@ -32,109 +33,144 @@ const (
 /* Loop setpoints forever. */
 const LOOP_INFINITE uint16 = 0xffff
 
-/* Setpoint value. */
+/* Data for simple message types. */
+type simpleType struct {
+	Addr uint8
+}
+
+/* Ping message type. */
+type Ping simpleType
+
+/* SetPID message type. */
+type SetPID struct {
+	Addr uint8
+	Kp   float32
+	Ki   float32
+	Kd   float32
+}
+
+/* Setpoint message type. */
 type Setpoint struct {
+	Addr      uint8
+	Delay     uint16
+	Loop      uint16
+	Setpoints []SetpointValue
+}
+
+/* Setpoint value. */
+type SetpointValue struct {
 	Duration uint16 // offset 0x00, duration in ms
 	Setpoint uint16 // offset 0x02, setpoint
 }
+
+/* Test message type. */
+type Test simpleType
+
+/* Value message type. */
+type Value simpleType
 
 /* Invalid message error. */
 var InvalidMessageError = errors.New("Invalid message")
 
 /* Write ping message. */
-func WritePing(w io.Writer, addr uint8) error {
-	return writeSimpleAddressedMessage(w, addr, kPing)
+func (m *Ping) WriteTo(w io.Writer) (int64, error) {
+	return writeTo(w, m.Addr, kPing)
 }
 
 /* Write set PID message. */
-func WriteSetPID(w io.Writer, addr uint8, kp, ki, kd float32) error {
+func (m *SetPID) WriteTo(w io.Writer) (int64, error) {
 	h := crc32.NewIEEE()
-	bw := bufio.NewWriterSize(w, 18)
-	mw := io.MultiWriter(bw, h)
+	b := bufio.NewWriterSize(w, 18)
+	ww := io.MultiWriter(b, h)
 	// write header
-	header := []uint8{addr, kSetPID, 12, 0}
-	if err := binary.Write(mw, binary.LittleEndian, header); err != nil {
-		return err
+	if _, err := ww.Write([]byte{m.Addr, kSetPID, 12, 0}); err != nil {
+		return 0, err
 	}
 	// write data
-	data := []float32{kp, ki, kd}
-	if err := binary.Write(mw, binary.LittleEndian, data); err != nil {
-		return err
+	data := []float32{m.Kp, m.Ki, m.Kd}
+	if err := binary.Write(ww, binary.LittleEndian, data); err != nil {
+		return 0, err
 	}
 	// write checksum
 	var checksum uint16 = uint16(h.Sum32())
-	if err := binary.Write(bw, binary.LittleEndian, checksum); err != nil {
-		return err
+	if err := binary.Write(b, binary.LittleEndian, checksum); err != nil {
+		return 0, err
 	}
 	// flush buffer
-	return bw.Flush()
+	return 18, b.Flush()
 }
 
 /* Write set Setpoint message. */
-func WriteSetpoint(w io.Writer,
-	addr uint8, delay, loop uint16, setpoints []Setpoint) error {
-	nsetpoints := len(setpoints)
+func (m *Setpoint) WriteTo(w io.Writer) (int64, error) {
+	nsetpoints := len(m.Setpoints)
 
-	if nsetpoints <= 0 || nsetpoints > 0xffff {
-		return InvalidMessageError
+	// (1024-6)/4 = 254 max setpoints for 1024 byte max data
+	if nsetpoints <= 0 || nsetpoints > 254 {
+		return 0, InvalidMessageError
 	}
 
 	h := crc32.NewIEEE()
-	bw := bufio.NewWriter(w)
-	mw := io.MultiWriter(bw, h)
+	b := bufio.NewWriterSize(w, 2048)
+	ww := io.MultiWriter(b, h)
 
 	// write header
-	header := []uint8{addr, kSetpoint}
-	if err := binary.Write(mw, binary.LittleEndian, header); err != nil {
-		return err
+	if _, err := ww.Write([]uint8{m.Addr, kSetpoint}); err != nil {
+		return 0, err
 	}
 	// write size
 	size := uint16(6 + 4*nsetpoints)
-	if err := binary.Write(mw, binary.LittleEndian, size); err != nil {
-		return err
+	if err := binary.Write(ww, binary.LittleEndian, size); err != nil {
+		return 0, err
+	}
+	// write data header
+	data := []uint16{m.Delay, m.Loop, uint16(nsetpoints)}
+	if err := binary.Write(ww, binary.LittleEndian, data); err != nil {
+		return 0, err
 	}
 	// write data
-	data := []uint16{delay, loop, uint16(nsetpoints)}
-	if err := binary.Write(mw, binary.LittleEndian, data); err != nil {
-		return err
-	}
-	if err := binary.Write(mw, binary.LittleEndian, setpoints); err != nil {
-		return err
+	if err := binary.Write(ww, binary.LittleEndian, m.Setpoints); err != nil {
+		return 0, err
 	}
 	// write checksum
 	var checksum uint16 = uint16(h.Sum32())
-	if err := binary.Write(bw, binary.LittleEndian, checksum); err != nil {
-		return err
+	if err := binary.Write(b, binary.LittleEndian, checksum); err != nil {
+		return 0, err
 	}
 	// flush buffer
-	return bw.Flush()
+	n := b.Buffered()
+	if err := b.Flush(); err != nil {
+		return 0, err
+	}
+	return int64(n), nil
 }
 
 /* Write set test message. */
-func WriteRunTests(w io.Writer, addr uint8) error {
-	return writeSimpleAddressedMessage(w, addr, kTest)
+func (m *Test) WriteTo(w io.Writer) (int64, error) {
+	return writeTo(w, m.Addr, kTest)
 }
 
-/* Write set value message. */
-func WriteRequestPosition(w io.Writer, addr uint8) error {
-	return writeSimpleAddressedMessage(w, addr, kValue)
+/* Write request value message. */
+func (m *Value) WriteTo(w io.Writer) (int64, error) {
+	return writeTo(w, m.Addr, kValue)
 }
 
 /* Write simple message. */
-func writeSimpleAddressedMessage(w io.Writer, addr, msgtype uint8) error {
+func writeTo(w io.Writer, addr, msgtype uint8) (int64, error) {
 	h := crc32.NewIEEE()
-	bw := bufio.NewWriterSize(w, 6)
-	mw := io.MultiWriter(bw, h)
+	b := bufio.NewWriterSize(w, 6)
+	ww := io.MultiWriter(b, h)
 	// write header
-	header := []uint8{addr, msgtype, 0, 0}
-	if err := binary.Write(mw, binary.LittleEndian, header); err != nil {
-		return err
+	if _, err := ww.Write([]uint8{addr, msgtype, 0, 0}); err != nil {
+		return 0, err
 	}
 	// write checksum
 	var checksum uint16 = uint16(h.Sum32())
-	if err := binary.Write(bw, binary.LittleEndian, checksum); err != nil {
-		return err
+	if err := binary.Write(b, binary.LittleEndian, checksum); err != nil {
+		return 0, err
 	}
 	// flush buffer
-	return bw.Flush()
+	if err := b.Flush(); err != nil {
+		return 0, err
+	}
+	return 6, nil
 }

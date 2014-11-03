@@ -89,7 +89,7 @@ func runcmd(conn net.Conn, addr uint8) {
 			log.Printf("parsed pid kp=%f ki=%f kd=%f", kp, ki, kd)
 		}
 
-		msgtype.WriteSetPID(conn, addr, kp, ki, kd)
+		(&msgtype.SetPID{addr, kp, ki, kd}).WriteTo(conn)
 
 	case "setpoint":
 		if flag.NArg() < 6 {
@@ -112,7 +112,7 @@ func runcmd(conn net.Conn, addr uint8) {
 		delay := uint16(delayInt)
 		loop := uint16(loopInt)
 
-		setpoints := make([]msgtype.Setpoint, (flag.NArg()-4)/2)
+		setpoints := make([]msgtype.SetpointValue, (flag.NArg()-4)/2)
 		for i := 4; i < flag.NArg(); i += 2 {
 			var duration, setpoint int
 
@@ -129,20 +129,20 @@ func runcmd(conn net.Conn, addr uint8) {
 			setpoints[j].Setpoint = uint16(setpoint)
 		}
 
-		msgtype.WriteSetpoint(conn, addr, delay, loop, setpoints)
+		(&msgtype.Setpoint{addr, delay, loop, setpoints}).WriteTo(conn)
 
 	case "ping":
-		msgtype.WritePing(conn, addr)
+		(&msgtype.Ping{addr}).WriteTo(conn)
 		conn.SetReadDeadline(time.Now().Add(time.Second))
 		io.Copy(os.Stdout, conn)
 
 	case "test":
-		msgtype.WriteRunTests(conn, addr)
+		(&msgtype.Test{addr}).WriteTo(conn)
 		conn.SetReadDeadline(time.Now().Add(time.Minute * 5))
 		io.Copy(os.Stdout, conn)
 
 	case "value":
-		msgtype.WriteRequestPosition(conn, addr)
+		(&msgtype.Value{addr}).WriteTo(conn)
 		conn.SetReadDeadline(time.Now().Add(time.Second))
 		io.Copy(os.Stdout, conn)
 
