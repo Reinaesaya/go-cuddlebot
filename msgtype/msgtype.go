@@ -2,10 +2,8 @@ package msgtype
 
 import (
 	"bufio"
-	// "bytes"
 	"encoding/binary"
 	"errors"
-	"hash/crc32"
 	"io"
 )
 
@@ -79,8 +77,8 @@ func (m *Ping) WriteTo(w io.Writer) (int64, error) {
 
 /* Write set PID message. */
 func (m *SetPID) WriteTo(w io.Writer) (int64, error) {
-	h := crc32.NewIEEE()
-	b := bufio.NewWriterSize(w, 18)
+	h := NewModbus()
+	b := bufio.NewWriter(w)
 	ww := io.MultiWriter(b, h)
 	// write header
 	if _, err := ww.Write([]byte{m.Addr, kSetPID, 12, 0}); err != nil {
@@ -92,12 +90,15 @@ func (m *SetPID) WriteTo(w io.Writer) (int64, error) {
 		return 0, err
 	}
 	// write checksum
-	var checksum uint16 = uint16(h.Sum32())
-	if err := binary.Write(b, binary.LittleEndian, checksum); err != nil {
+	if _, err := ww.Write([]uint8{h.lo, h.hi}); err != nil {
 		return 0, err
 	}
 	// flush buffer
-	return 18, b.Flush()
+	n := b.Buffered()
+	if err := b.Flush(); err != nil {
+		return 0, err
+	}
+	return int64(n), nil
 }
 
 /* Write set Setpoint message. */
@@ -109,8 +110,8 @@ func (m *Setpoint) WriteTo(w io.Writer) (int64, error) {
 		return 0, InvalidMessageError
 	}
 
-	h := crc32.NewIEEE()
-	b := bufio.NewWriterSize(w, 2048)
+	h := NewModbus()
+	b := bufio.NewWriter(w)
 	ww := io.MultiWriter(b, h)
 
 	// write header
@@ -122,18 +123,17 @@ func (m *Setpoint) WriteTo(w io.Writer) (int64, error) {
 	if err := binary.Write(ww, binary.LittleEndian, size); err != nil {
 		return 0, err
 	}
-	// write data header
+	// write data
 	data := []uint16{m.Delay, m.Loop, uint16(nsetpoints)}
 	if err := binary.Write(ww, binary.LittleEndian, data); err != nil {
 		return 0, err
 	}
-	// write data
+	// write setpoint data
 	if err := binary.Write(ww, binary.LittleEndian, m.Setpoints); err != nil {
 		return 0, err
 	}
 	// write checksum
-	var checksum uint16 = uint16(h.Sum32())
-	if err := binary.Write(b, binary.LittleEndian, checksum); err != nil {
+	if _, err := ww.Write([]uint8{h.lo, h.hi}); err != nil {
 		return 0, err
 	}
 	// flush buffer
@@ -156,21 +156,21 @@ func (m *Value) WriteTo(w io.Writer) (int64, error) {
 
 /* Write simple message. */
 func writeTo(w io.Writer, addr, msgtype uint8) (int64, error) {
-	h := crc32.NewIEEE()
-	b := bufio.NewWriterSize(w, 6)
+	h := NewModbus()
+	b := bufio.NewWriter(w)
 	ww := io.MultiWriter(b, h)
 	// write header
 	if _, err := ww.Write([]uint8{addr, msgtype, 0, 0}); err != nil {
 		return 0, err
 	}
 	// write checksum
-	var checksum uint16 = uint16(h.Sum32())
-	if err := binary.Write(b, binary.LittleEndian, checksum); err != nil {
+	if _, err := ww.Write([]uint8{h.lo, h.hi}); err != nil {
 		return 0, err
 	}
 	// flush buffer
+	n := b.Buffered()
 	if err := b.Flush(); err != nil {
 		return 0, err
 	}
-	return 6, nil
+	return int64(n), nil
 }

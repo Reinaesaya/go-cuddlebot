@@ -8,16 +8,16 @@ import (
 
 func TestPing(t *testing.T) {
 	writeExpect(t, func(w io.Writer) error {
-		_, err := (&Ping{3}).WriteTo(w)
+		_, err := (&Ping{'r'}).WriteTo(w)
 		return err
-	}, []byte{3, '?', 0, 0, 95, 210})
+	}, []byte{'r', '?', 0, 0, 43, 80})
 }
 
 func TestSetPID(t *testing.T) {
 	writeExpect(t, func(w io.Writer) error {
 		_, err := (&SetPID{2, 1.0, 2.0, 3.0}).WriteTo(w)
 		return err
-	}, []byte{2, 'c', 12, 0, 0, 0, 128, 63, 0, 0, 0, 64, 0, 0, 64, 64, 95, 128})
+	}, []byte{2, 'c', 12, 0, 0, 0, 128, 63, 0, 0, 0, 64, 0, 0, 64, 64, 51, 82})
 }
 
 func TestSetpoint(t *testing.T) {
@@ -39,7 +39,7 @@ func TestSetpoint(t *testing.T) {
 		4, 'g', 10, 0,
 		13, 0, 255, 255, 1, 0,
 		16, 0, 8, 0,
-		239, 11,
+		239, 26,
 	})
 	// three setpoint
 	writeExpect(t, func(w io.Writer) error {
@@ -55,7 +55,7 @@ func TestSetpoint(t *testing.T) {
 		16, 0, 8, 0,
 		17, 0, 95, 0,
 		232, 3, 0, 1,
-		210, 234,
+		29, 222,
 	})
 }
 
@@ -63,14 +63,14 @@ func TestRunTests(t *testing.T) {
 	writeExpect(t, func(w io.Writer) error {
 		_, err := (&Test{7}).WriteTo(w)
 		return err
-	}, []byte{7, 't', 0, 0, 41, 39})
+	}, []byte{7, 't', 0, 0, 65, 74})
 }
 
 func TestRequestPosition(t *testing.T) {
 	writeExpect(t, func(w io.Writer) error {
 		_, err := (&Value{1}).WriteTo(w)
 		return err
-	}, []byte{1, 'v', 0, 0, 155, 172})
+	}, []byte{1, 'v', 0, 0, 224, 2})
 }
 
 func writeExpect(t *testing.T, f func(io.Writer) error, expect []byte) {
