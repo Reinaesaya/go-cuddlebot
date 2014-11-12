@@ -33,7 +33,7 @@ const LOOP_INFINITE uint16 = 0xffff
 
 /* Data for simple message types. */
 type simpleType struct {
-	Addr uint8
+	Addr uint8 `json:"addr"`
 }
 
 /* Ping message type. */
@@ -41,24 +41,24 @@ type Ping simpleType
 
 /* SetPID message type. */
 type SetPID struct {
-	Addr uint8
-	Kp   float32
-	Ki   float32
-	Kd   float32
+	Addr uint8   `json:"addr"`
+	Kp   float32 `json:"kp"`
+	Ki   float32 `json:"ki"`
+	Kd   float32 `json:"kd"`
 }
 
 /* Setpoint message type. */
 type Setpoint struct {
-	Addr      uint8
-	Delay     uint16
-	Loop      uint16
-	Setpoints []SetpointValue
+	Addr      uint8           `json:"addr"`
+	Delay     uint16          `json:"delay"`
+	Loop      uint16          `json:"loop"`
+	Setpoints []SetpointValue `json:"setpoints"`
 }
 
 /* Setpoint value. */
 type SetpointValue struct {
-	Duration uint16 // offset 0x00, duration in ms
-	Setpoint uint16 // offset 0x02, setpoint
+	Duration uint16 `json:"duration"` // offset 0x00, duration in ms
+	Setpoint uint16 `json:"setpoint"` // offset 0x02, setpoint
 }
 
 /* Test message type. */
