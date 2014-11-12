@@ -33,7 +33,7 @@ func main() {
 	flag.Usage = usage
 	flag.Parse()
 
-	if flag.NArg() < 2 {
+	if flag.NArg() < 1 {
 		fatalUsage()
 	} else if *help {
 		flag.Usage()
@@ -74,16 +74,16 @@ func main() {
 
 func runcmd(conn net.Conn, addr uint8) {
 	// run command
-	switch flag.Arg(1) {
+	switch flag.Arg(0) {
 	case "setpid":
-		if flag.NArg() < 5 {
+		if flag.NArg() < 4 {
 			fatalUsage()
 		}
 
 		var kp, ki, kd float32
-		fmt.Fscanf(bytes.NewBufferString(flag.Arg(2)), "%f", &kp)
-		fmt.Fscanf(bytes.NewBufferString(flag.Arg(3)), "%f", &ki)
-		fmt.Fscanf(bytes.NewBufferString(flag.Arg(4)), "%f", &kd)
+		fmt.Fscanf(bytes.NewBufferString(flag.Arg(1)), "%f", &kp)
+		fmt.Fscanf(bytes.NewBufferString(flag.Arg(2)), "%f", &ki)
+		fmt.Fscanf(bytes.NewBufferString(flag.Arg(3)), "%f", &kd)
 
 		if *debug {
 			log.Printf("parsed pid kp=%f ki=%f kd=%f", kp, ki, kd)
@@ -92,18 +92,18 @@ func runcmd(conn net.Conn, addr uint8) {
 		(&msgtype.SetPID{addr, kp, ki, kd}).WriteTo(conn)
 
 	case "setpoint":
-		if flag.NArg() < 6 {
+		if flag.NArg() < 5 {
 			fatalUsage()
 		}
 
-		if flag.NArg()%2 != 0 {
+		if flag.NArg()%2 != 1 {
 			log.Fatal(os.Stderr, "Error: duration and setpoint must be given in pairs")
 		}
 
 		var delayInt, loopInt int
 
-		fmt.Fscanf(bytes.NewBufferString(flag.Arg(2)), "%d", &delayInt)
-		fmt.Fscanf(bytes.NewBufferString(flag.Arg(3)), "%d", &loopInt)
+		fmt.Fscanf(bytes.NewBufferString(flag.Arg(1)), "%d", &delayInt)
+		fmt.Fscanf(bytes.NewBufferString(flag.Arg(2)), "%d", &loopInt)
 
 		if delayInt < 0 || loopInt < 0 {
 			log.Fatal(os.Stderr, "Error: delay and loop must be positive")
@@ -112,8 +112,8 @@ func runcmd(conn net.Conn, addr uint8) {
 		delay := uint16(delayInt)
 		loop := uint16(loopInt)
 
-		setpoints := make([]msgtype.SetpointValue, (flag.NArg()-4)/2)
-		for i := 4; i < flag.NArg(); i += 2 {
+		setpoints := make([]msgtype.SetpointValue, (flag.NArg()-3)/2)
+		for i := 3; i < flag.NArg(); i += 2 {
 			var duration, setpoint int
 
 			fmt.Fscanf(bytes.NewBufferString(flag.Arg(i)), "%d", &duration)
