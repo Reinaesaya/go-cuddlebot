@@ -13,15 +13,16 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"os/signal"
 	"runtime"
-	"syscall"
+	"time"
 
 	"../cuddlemaster"
 	"github.com/mikepb/go-serial"
+	"github.com/stretchr/graceful"
 )
 
 func main() {
+	l := log.New(os.Stdout, "[cuddled] ", 0)
 
 	// define flags
 	debug := flag.Bool("debug", false, "print debug messages")
@@ -46,13 +47,14 @@ func main() {
 
 	// set low-latency option on serial port
 	if runtime.GOOS == "linux" {
+		l := log.New(os.Stdout, "[setserial] ", 0)
 		cmd := exec.Command("/bin/setserial", *portname, "low_latency")
 		if err := cmd.Run(); err != nil {
-			log.Println("exec:", err)
+			l.Println(err)
 		} else if output, err := cmd.CombinedOutput(); err != nil {
-			log.Println("exec:", err)
+			l.Println(err)
 		} else {
-			log.Println(output)
+			l.Println(output)
 		}
 	}
 
@@ -64,23 +66,20 @@ func main() {
 		Parity:   serial.PARITY_NONE,
 	})
 	if err != nil {
-		log.Fatalln("serial:", err)
+		l := log.New(os.Stdout, "[serial] ", 0)
+		l.Fatalln(err)
 	}
-	log.Println("Opened serial port:", *portname)
+	l.Println("Connected to", *portname)
 	defer port.Close()
+
+	// update setpoints in background
+	go cuddlemaster.UpdateSetpoints(port)
 
 	// set debug
 	cuddlemaster.Debug = *debug
-	// set up listener for web server
-	cuddlemaster.ListenAndServe(*listenaddr, port)
+	// create server instance
+	mux := cuddlemaster.New()
 
-	// set up interrupt signal channel
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
-
-	// handle connections or interrupts
-	killSignal := <-interrupt
-	log.Println("Got signal:", killSignal)
-	log.Println("Shutting down...")
-	os.Exit(0)
+	// run with graceful shutdown
+	graceful.Run(*listenaddr, time.Second, mux)
 }

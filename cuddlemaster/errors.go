@@ -1,12 +1,19 @@
 package cuddlemaster
 
-import "errors"
+type Error struct {
+	OK      bool   `json:"ok"`
+	Message string `json:"error,omitempty"`
+}
 
-var AddressError = errors.New("Invalid address")
-var MissingFieldsError = errors.New("Missing fields")
-var InvalidSetpointError = errors.New("Invalid setpoint(s)")
+var (
+	InvalidAddressError  = &Error{Message: "InvalidAddressError"}
+	InvalidMessageError  = &Error{Message: "InvalidMessageError"}
+	InvalidSetpointError = &Error{Message: "InvalidSetpointError"}
+	MethodNotAllowed     = &Error{Message: "MethodNotAllowed"}
+	MissingFieldError    = &Error{Message: "MissingFieldError"}
+	NotImplementedError  = &Error{Message: "NotImplementedError"}
+)
 
-type jsonError struct {
-	OK    bool   `json:"ok"`
-	Error string `json:"error"`
+func (e *Error) Error() string {
+	return e.Message
 }

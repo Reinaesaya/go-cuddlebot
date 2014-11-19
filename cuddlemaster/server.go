@@ -7,29 +7,41 @@ Cuddlebot actuators.
 package cuddlemaster
 
 import (
-	"log"
-	"net"
+	"encoding/json"
+	"io"
 	"net/http"
-	"time"
+
+	"github.com/codegangsta/negroni"
+	"github.com/phyber/negroni-gzip/gzip"
 )
 
+type customHandler func(w http.ResponseWriter, req *http.Request, body io.Reader) error
+
 var Debug = false
-var port net.Conn
 
-func ListenAndServe(addr string, p net.Conn) {
-	port = p
-
+func New() http.Handler {
 	// set up handlers
-	http.HandleFunc("/pid", makeHandler(setPIDHandler))
 	http.HandleFunc("/setpoint", makeHandler(setpointHandler))
-	http.HandleFunc("/data", makeHandler(dataHandler))
+	http.Handle("/data", negroni.New(
+		gzip.Gzip(gzip.DefaultCompression),
+		negroni.Wrap(makeHandler(dataHandler)),
+	))
 
-	// listen and serve
-	go func() {
-		if err := http.ListenAndServe(addr, nil); err != nil {
-			log.Fatalln("http:", err)
+	// use negroni
+	n := negroni.New(negroni.NewRecovery(), negroni.NewLogger())
+	n.UseHandler(http.DefaultServeMux)
+
+	return http.Handler(n)
+}
+
+func makeHandler(fn customHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := fn(w, req, req.Body); err != nil {
+			if err := json.NewEncoder(w).Encode(err); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				io.WriteString(w, `{"ok":false,"error":"InternalServerError"}`)
+			}
 		}
-	}()
-	time.Sleep(time.Millisecond * 500)
-	log.Println("Listening on:", addr)
+	}
 }
