@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding"
 	"flag"
 	"fmt"
 	"io"
@@ -89,7 +90,7 @@ func runcmd(conn net.Conn, addr uint8) {
 			log.Printf("parsed pid kp=%f ki=%f kd=%f", kp, ki, kd)
 		}
 
-		(&msgtype.SetPID{addr, kp, ki, kd}).WriteTo(conn)
+		sendcmd(conn, &msgtype.SetPID{addr, kp, ki, kd})
 
 	case "setpoint":
 		if flag.NArg() < 5 {
@@ -129,20 +130,20 @@ func runcmd(conn net.Conn, addr uint8) {
 			setpoints[j].Setpoint = uint16(setpoint)
 		}
 
-		(&msgtype.Setpoint{addr, delay, loop, setpoints}).WriteTo(conn)
+		sendcmd(conn, &msgtype.Setpoint{addr, delay, loop, setpoints})
 
 	case "ping":
-		(&msgtype.Ping{addr}).WriteTo(conn)
+		sendcmd(conn, &msgtype.Ping{addr})
 		conn.SetReadDeadline(time.Now().Add(time.Second))
 		io.Copy(os.Stdout, conn)
 
 	case "test":
-		(&msgtype.Test{addr}).WriteTo(conn)
+		sendcmd(conn, &msgtype.Test{addr})
 		conn.SetReadDeadline(time.Now().Add(time.Minute * 5))
 		io.Copy(os.Stdout, conn)
 
 	case "value":
-		(&msgtype.Value{addr}).WriteTo(conn)
+		sendcmd(conn, &msgtype.Value{addr})
 		conn.SetReadDeadline(time.Now().Add(time.Second))
 		io.Copy(os.Stdout, conn)
 
@@ -152,6 +153,14 @@ func runcmd(conn net.Conn, addr uint8) {
 
 	if *debug {
 		log.Printf("sent %s message to address %d", flag.Arg(1), addr)
+	}
+}
+
+func sendcmd(conn io.Writer, m encoding.BinaryMarshaler) {
+	if bs, err := m.MarshalBinary(); err != nil {
+		log.Fatalln(err)
+	} else if _, err := conn.Write(bs); err != nil {
+		log.Fatalln(err)
 	}
 }
 

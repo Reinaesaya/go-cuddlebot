@@ -2,87 +2,91 @@ package msgtype
 
 import (
 	"bytes"
+	"encoding"
 	"io"
 	"testing"
 )
 
+func TestRemoteAddressMarshalText(t *testing.T) {
+	addr := InvalidAddress
+	if _, err := addr.MarshalText(); err == nil {
+		t.Fatal("RemoteAddress.MarshalText() did not error on invalid address")
+	}
+	testRemoteAddress(t, RibsAddress, "ribs", "RibsAddress")
+	testRemoteAddress(t, PurrAddress, "purr", "PurrAddress")
+	testRemoteAddress(t, SpineAddress, "spine", "SpineAddress")
+	testRemoteAddress(t, HeadXAddress, "headx", "HeadXAddress")
+	testRemoteAddress(t, HeadYAddress, "heady", "HeadYAddress")
+}
+
+func testRemoteAddress(t *testing.T, addr RemoteAddress, str, name string) {
+	if bs, err := addr.MarshalText(); err != nil {
+		t.Fatal(err)
+	} else if s, err := bytes.NewBuffer(bs).ReadString(0); err != io.EOF && err != nil {
+		t.Fatal(err)
+	} else if s != str {
+		t.Fatalf("%s != '%s'", name, str)
+	}
+}
+
 func TestPing(t *testing.T) {
-	writeExpect(t, func(w io.Writer) error {
-		_, err := (&Ping{'r'}).WriteTo(w)
-		return err
-	}, []byte{'r', '?', 0, 0, 43, 80})
+	testMarshalExpect(t, &Ping{'r'}, []byte{'r', '?', 0, 0, 6, 51})
 }
 
 func TestSetPID(t *testing.T) {
-	writeExpect(t, func(w io.Writer) error {
-		_, err := (&SetPID{2, 1.0, 2.0, 3.0}).WriteTo(w)
-		return err
-	}, []byte{2, 'c', 12, 0, 0, 0, 128, 63, 0, 0, 0, 64, 0, 0, 64, 64, 51, 82})
+	testMarshalExpect(t, &SetPID{2, 1.0, 2.0, 3.0},
+		[]byte{2, 'c', 12, 0, 0, 0, 128, 63, 0, 0, 0, 64, 0, 0, 64, 64, 93, 23})
 }
 
 func TestSetpoint(t *testing.T) {
 	// no setpoints
 	{
-		var b bytes.Buffer
 		setpoint := &Setpoint{4, 13, 0xffff, []SetpointValue{}}
-		if _, err := setpoint.WriteTo(&b); err == nil {
+		if _, err := setpoint.MarshalBinary(); err == nil {
 			t.Fatal("Setpoint did not return an error for empty set")
 		}
 	}
 	// one setpoint
-	writeExpect(t, func(w io.Writer) error {
-		_, err := (&Setpoint{4, 13, 0xffff, []SetpointValue{
-			SetpointValue{Duration: 16, Setpoint: 8},
-		}}).WriteTo(w)
-		return err
-	}, []byte{
+	testMarshalExpect(t, &Setpoint{4, 13, 0xffff, []SetpointValue{
+		SetpointValue{Duration: 16, Setpoint: 8},
+	}}, []byte{
 		4, 'g', 10, 0,
 		13, 0, 255, 255, 1, 0,
 		16, 0, 8, 0,
-		239, 26,
+		150, 136,
 	})
 	// three setpoint
-	writeExpect(t, func(w io.Writer) error {
-		_, err := (&Setpoint{4, 13, 0xffff, []SetpointValue{
-			SetpointValue{Duration: 16, Setpoint: 8},
-			SetpointValue{Duration: 17, Setpoint: 95},
-			SetpointValue{Duration: 1000, Setpoint: 256},
-		}}).WriteTo(w)
-		return err
-	}, []byte{
+	testMarshalExpect(t, &Setpoint{4, 13, 0xffff, []SetpointValue{
+		SetpointValue{Duration: 16, Setpoint: 8},
+		SetpointValue{Duration: 17, Setpoint: 95},
+		SetpointValue{Duration: 1000, Setpoint: 256},
+	}}, []byte{
 		4, 'g', 18, 0,
 		13, 0, 255, 255, 3, 0,
 		16, 0, 8, 0,
 		17, 0, 95, 0,
 		232, 3, 0, 1,
-		29, 222,
+		144, 36,
 	})
 }
 
 func TestRunTests(t *testing.T) {
-	writeExpect(t, func(w io.Writer) error {
-		_, err := (&Test{7}).WriteTo(w)
-		return err
-	}, []byte{7, 't', 0, 0, 65, 74})
+	testMarshalExpect(t, &Test{7}, []byte{7, 't', 0, 0, 241, 215})
 }
 
 func TestRequestPosition(t *testing.T) {
-	writeExpect(t, func(w io.Writer) error {
-		_, err := (&Value{1}).WriteTo(w)
-		return err
-	}, []byte{1, 'v', 0, 0, 224, 2})
+	testMarshalExpect(t, &Value{1}, []byte{1, 'v', 0, 0, 70, 158})
 }
 
-func writeExpect(t *testing.T, f func(io.Writer) error, expect []byte) {
-	var b bytes.Buffer
-	if err := f(&b); err != nil {
+func testMarshalExpect(t *testing.T, m encoding.BinaryMarshaler, expect []byte) {
+	subject, err := m.MarshalBinary()
+	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("Bytes: %v", b.Bytes())
-	if b.Len() != len(expect) {
-		t.Fatalf("Expected %d bytes, got %d", len(expect), b.Len())
+	t.Logf("Bytes: %v", subject)
+	if len(subject) != len(expect) {
+		t.Fatalf("Expected %d bytes, got %d", len(expect), len(subject))
 	}
-	subject := b.Bytes()
 	for i, v := range subject {
 		if v != expect[i] {
 			t.Fatal("Bytes did not match expected")

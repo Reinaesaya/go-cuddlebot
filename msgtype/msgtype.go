@@ -1,24 +1,32 @@
 package msgtype
 
 import (
-	"bufio"
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
+
+	"github.com/mikepb/go-crc16"
 )
 
-/* Board addresses. */
 const (
-	ADDR_INVALID    uint8 = 0   // invalid address
-	ADDR_RIBS             = 'r' // ribs actuator
-	ADDR_PURR             = 'p' // purr motor
-	ADDR_SPINE            = 's' // spine actuator
-	ADDR_HEAD_YAW         = 'x' // head yaw actuator
-	ADDR_HEAD_PITCH       = 'y' // head pitch actuator
-)
 
-/* Message types. */
-const (
+	// Board addresses.
+	InvalidAddress RemoteAddress = 0   // invalid address
+	RibsAddress                  = 'r' // ribs actuator
+	PurrAddress                  = 'p' // purr motor
+	SpineAddress                 = 's' // spine actuator
+	HeadXAddress                 = 'x' // head yaw actuator
+	HeadYAddress                 = 'y' // head pitch actuator
+
+	// Board addresses as strings.
+	RibsAddressString  = "ribs"  // ribs actuator
+	PurrAddressString  = "purr"  // purr motor
+	SpineAddressString = "spine" // spine actuator
+	HeadXAddressString = "headx" // head yaw actuator
+	HeadYAddressString = "heady" // head pitch actuator
+
+	// Message types.
 	kInvalidType uint8 = 0   // invalid message
 	kPing              = '?' // ping an actuator
 	kPong              = '.' // respond to ping
@@ -26,151 +34,193 @@ const (
 	kSetpoint          = 'g' // send setpoints
 	kTest              = 't' // run internal tests
 	kValue             = 'v' // get position value
+
 )
 
-/* Loop setpoints forever. */
+// Loop setpoints forever.
 const LOOP_INFINITE uint16 = 0xffff
 
-/* Data for simple message types. */
+type RemoteAddress uint8
+
+// Data for simple message types.
 type simpleType struct {
-	Addr uint8 `json:"addr"`
+	Addr RemoteAddress `json:"addr"`
 }
 
-/* Ping message type. */
+// Ping message type.
 type Ping simpleType
 
-/* SetPID message type. */
+// SetPID message type.
 type SetPID struct {
-	Addr uint8   `json:"addr"`
-	Kp   float32 `json:"kp"`
-	Ki   float32 `json:"ki"`
-	Kd   float32 `json:"kd"`
+	Addr RemoteAddress `json:"addr"`
+	Kp   float32       `json:"kp"`
+	Ki   float32       `json:"ki"`
+	Kd   float32       `json:"kd"`
 }
 
-/* Setpoint message type. */
+// Setpoint message type.
 type Setpoint struct {
-	Addr      uint8           `json:"addr"`
+	Addr      RemoteAddress   `json:"addr"`
 	Delay     uint16          `json:"delay"`
 	Loop      uint16          `json:"loop"`
 	Setpoints []SetpointValue `json:"setpoints"`
 }
 
-/* Setpoint value. */
+// Setpoint value.
 type SetpointValue struct {
 	Duration uint16 `json:"duration"` // offset 0x00, duration in ms
 	Setpoint uint16 `json:"setpoint"` // offset 0x02, setpoint
 }
 
-/* Test message type. */
+// Test message type.
 type Test simpleType
 
-/* Value message type. */
+// Value message type.
 type Value simpleType
 
-/* Invalid message error. */
+// Invalid message error.
+var InvalidAddressError = errors.New("Invalid address")
+
+// Invalid message error.
 var InvalidMessageError = errors.New("Invalid message")
 
-/* Write ping message. */
-func (m *Ping) WriteTo(w io.Writer) (int64, error) {
-	return writeTo(w, m.Addr, kPing)
+// Serialize address to text.
+func (a *RemoteAddress) MarshalText() ([]byte, error) {
+	var s string
+
+	switch *a {
+	case RibsAddress:
+		s = RibsAddressString
+	case PurrAddress:
+		s = PurrAddressString
+	case SpineAddress:
+		s = SpineAddressString
+	case HeadXAddress:
+		s = HeadXAddressString
+	case HeadYAddress:
+		s = HeadYAddressString
+	default:
+		return nil, InvalidAddressError
+	}
+
+	return bytes.NewBufferString(s).Bytes(), nil
 }
 
-/* Write set PID message. */
-func (m *SetPID) WriteTo(w io.Writer) (int64, error) {
-	h := NewModbus()
-	b := bufio.NewWriter(w)
-	ww := io.MultiWriter(b, h)
+// Deserialize address from text.
+func (a *RemoteAddress) UnmarshalText(text []byte) error {
+	s, err := bytes.NewBuffer(text).ReadString(0)
+	if err != io.EOF {
+		return err
+	}
+
+	switch s {
+	case RibsAddressString:
+		*a = RibsAddress
+	case PurrAddressString:
+		*a = PurrAddress
+	case SpineAddressString:
+		*a = SpineAddress
+	case HeadXAddressString:
+		*a = HeadXAddress
+	case HeadYAddressString:
+		*a = HeadYAddress
+	default:
+		return InvalidAddressError
+	}
+
+	return nil
+}
+
+// Encode ping message.
+func (m *Ping) MarshalBinary() (data []byte, err error) {
+	return marshalBinary(m.Addr, kPing)
+}
+
+// Encode PID message.
+func (m *SetPID) MarshalBinary() (data []byte, err error) {
+	var b bytes.Buffer
+	h := crc16.NewANSI()
+	ww := io.MultiWriter(&b, h)
 	// write header
-	if _, err := ww.Write([]byte{m.Addr, kSetPID, 12, 0}); err != nil {
-		return 0, err
+	if _, err = ww.Write([]byte{uint8(m.Addr), kSetPID, 12, 0}); err != nil {
+		return
 	}
 	// write data
-	data := []float32{m.Kp, m.Ki, m.Kd}
-	if err := binary.Write(ww, binary.LittleEndian, data); err != nil {
-		return 0, err
+	d := []float32{m.Kp, m.Ki, m.Kd}
+	if err = binary.Write(ww, binary.LittleEndian, d); err != nil {
+		return
 	}
 	// write checksum
-	if _, err := ww.Write([]uint8{h.lo, h.hi}); err != nil {
-		return 0, err
+	sum := h.Sum16()
+	if _, err = ww.Write([]uint8{uint8(sum), uint8(sum >> 8)}); err != nil {
+		return
 	}
-	// flush buffer
-	n := b.Buffered()
-	if err := b.Flush(); err != nil {
-		return 0, err
-	}
-	return int64(n), nil
+	// return data
+	return b.Bytes(), nil
 }
 
-/* Write set Setpoint message. */
-func (m *Setpoint) WriteTo(w io.Writer) (int64, error) {
+// Write set Setpoint message.
+func (m *Setpoint) MarshalBinary() (data []byte, err error) {
 	nsetpoints := len(m.Setpoints)
 
 	// (1024-6)/4 = 254 max setpoints for 1024 byte max data
 	if nsetpoints <= 0 || nsetpoints > 254 {
-		return 0, InvalidMessageError
+		return nil, InvalidMessageError
 	}
 
-	h := NewModbus()
-	b := bufio.NewWriter(w)
-	ww := io.MultiWriter(b, h)
+	var b bytes.Buffer
+	h := crc16.NewANSI()
+	ww := io.MultiWriter(&b, h)
 
 	// write header
-	if _, err := ww.Write([]uint8{m.Addr, kSetpoint}); err != nil {
-		return 0, err
+	if _, err = ww.Write([]uint8{uint8(m.Addr), kSetpoint}); err != nil {
+		return
 	}
 	// write size
 	size := uint16(6 + 4*nsetpoints)
-	if err := binary.Write(ww, binary.LittleEndian, size); err != nil {
-		return 0, err
+	if err = binary.Write(ww, binary.LittleEndian, size); err != nil {
+		return
 	}
 	// write data
-	data := []uint16{m.Delay, m.Loop, uint16(nsetpoints)}
-	if err := binary.Write(ww, binary.LittleEndian, data); err != nil {
-		return 0, err
+	d := []uint16{m.Delay, m.Loop, uint16(nsetpoints)}
+	if err = binary.Write(ww, binary.LittleEndian, d); err != nil {
+		return
 	}
 	// write setpoint data
-	if err := binary.Write(ww, binary.LittleEndian, m.Setpoints); err != nil {
-		return 0, err
+	if err = binary.Write(ww, binary.LittleEndian, m.Setpoints); err != nil {
+		return
 	}
-	// write checksum
-	if _, err := ww.Write([]uint8{h.lo, h.hi}); err != nil {
-		return 0, err
+	sum := h.Sum16()
+	if _, err = ww.Write([]uint8{uint8(sum), uint8(sum >> 8)}); err != nil {
+		return
 	}
-	// flush buffer
-	n := b.Buffered()
-	if err := b.Flush(); err != nil {
-		return 0, err
-	}
-	return int64(n), nil
+	// return data
+	return b.Bytes(), nil
 }
 
-/* Write set test message. */
-func (m *Test) WriteTo(w io.Writer) (int64, error) {
-	return writeTo(w, m.Addr, kTest)
+// Write set test message.
+func (m *Test) MarshalBinary() (data []byte, err error) {
+	return marshalBinary(m.Addr, kTest)
 }
 
-/* Write request value message. */
-func (m *Value) WriteTo(w io.Writer) (int64, error) {
-	return writeTo(w, m.Addr, kValue)
+// Write request value message.
+func (m *Value) MarshalBinary() (data []byte, err error) {
+	return marshalBinary(m.Addr, kValue)
 }
 
-/* Write simple message. */
-func writeTo(w io.Writer, addr, msgtype uint8) (int64, error) {
-	h := NewModbus()
-	b := bufio.NewWriter(w)
-	ww := io.MultiWriter(b, h)
+// Marshal simple message.
+func marshalBinary(addr RemoteAddress, msgtype uint8) (data []byte, err error) {
+	var b bytes.Buffer
+	h := crc16.NewANSI()
+	ww := io.MultiWriter(&b, h)
 	// write header
-	if _, err := ww.Write([]uint8{addr, msgtype, 0, 0}); err != nil {
-		return 0, err
+	if _, err = ww.Write([]uint8{uint8(addr), msgtype, 0, 0}); err != nil {
+		return
 	}
-	// write checksum
-	if _, err := ww.Write([]uint8{h.lo, h.hi}); err != nil {
-		return 0, err
+	sum := h.Sum16()
+	if _, err = b.Write([]uint8{uint8(sum), uint8(sum >> 8)}); err != nil {
+		return
 	}
-	// flush buffer
-	n := b.Buffered()
-	if err := b.Flush(); err != nil {
-		return 0, err
-	}
-	return int64(n), nil
+	// return contents
+	return b.Bytes(), nil
 }
