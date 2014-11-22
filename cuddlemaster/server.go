@@ -21,8 +21,8 @@ var Debug = false
 
 func New() http.Handler {
 	// set up handlers
-	http.HandleFunc("/setpoint", makeHandler(setpointHandler))
-	http.Handle("/data", negroni.New(
+	http.HandleFunc("/1/setpoint.json", makeHandler(setpointHandler))
+	http.Handle("/1/data.json", negroni.New(
 		gzip.Gzip(gzip.DefaultCompression),
 		negroni.Wrap(makeHandler(dataHandler)),
 	))
@@ -37,6 +37,7 @@ func New() http.Handler {
 func makeHandler(fn customHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		if err := fn(w, req, req.Body); err != nil {
 			if err := json.NewEncoder(w).Encode(err); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
