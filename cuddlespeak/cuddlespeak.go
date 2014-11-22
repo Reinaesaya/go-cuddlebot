@@ -61,19 +61,19 @@ func main() {
 	// run command
 	switch true {
 	case *ribs:
-		runcmd(conn, msgtype.ADDR_RIBS)
+		runcmd(conn, msgtype.RibsAddress)
 	case *purr:
-		runcmd(conn, msgtype.ADDR_PURR)
+		runcmd(conn, msgtype.PurrAddress)
 	case *spine:
-		runcmd(conn, msgtype.ADDR_SPINE)
+		runcmd(conn, msgtype.SpineAddress)
 	case *headx:
-		runcmd(conn, msgtype.ADDR_HEAD_YAW)
+		runcmd(conn, msgtype.HeadXAddress)
 	case *heady:
-		runcmd(conn, msgtype.ADDR_HEAD_PITCH)
+		runcmd(conn, msgtype.HeadYAddress)
 	}
 }
 
-func runcmd(conn net.Conn, addr uint8) {
+func runcmd(conn net.Conn, addr msgtype.RemoteAddress) {
 	// run command
 	switch flag.Arg(0) {
 	case "setpid":
