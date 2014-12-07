@@ -12,8 +12,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/mikepb/go-serial"
-
+	"../cuddlemaster"
 	"../msgtype"
 )
 
@@ -42,34 +41,25 @@ func main() {
 	}
 
 	// open serial port
-	port, err := serial.Open(*portname, serial.Options{
-		Baudrate: 115200,
-		DataBits: 8,
-		StopBits: 1,
-		Parity:   serial.PARITY_NONE,
-	})
+	port, err := cuddlemaster.OpenPort(*portname)
 	if err != nil {
-		log.Fatal(err)
-	} else if *debug {
-		log.Printf("opened %s", *portname)
+		log.Fatalln(err)
 	}
 	defer port.Close()
-
-	// net wrapper
-	conn := net.Conn(port)
+	log.Println("Connected to", *portname)
 
 	// run command
 	switch true {
 	case *ribs:
-		runcmd(conn, msgtype.RibsAddress)
+		runcmd(port, msgtype.RibsAddress)
 	case *purr:
-		runcmd(conn, msgtype.PurrAddress)
+		runcmd(port, msgtype.PurrAddress)
 	case *spine:
-		runcmd(conn, msgtype.SpineAddress)
+		runcmd(port, msgtype.SpineAddress)
 	case *headx:
-		runcmd(conn, msgtype.HeadXAddress)
+		runcmd(port, msgtype.HeadXAddress)
 	case *heady:
-		runcmd(conn, msgtype.HeadYAddress)
+		runcmd(port, msgtype.HeadYAddress)
 	}
 }
 

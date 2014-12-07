@@ -12,7 +12,7 @@ var setpointQueue = make(chan msgtype.Setpoint, 10)
 var setpointQueueOut = log.New(os.Stdout, "[setpoint] ", 0)
 var setpointQueueErr = log.New(os.Stderr, "[setpoint] ", 0)
 
-func UpdateSetpoints(p net.Conn) {
+func ListenForSetpointUpdates(p net.Conn) {
 	for {
 		setpoint := <-setpointQueue
 		if buf, err := setpoint.MarshalBinary(); err != nil {
