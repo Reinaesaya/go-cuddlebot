@@ -152,7 +152,7 @@ func (m *SetPID) MarshalBinary() (data []byte, err error) {
 	}
 	// write checksum
 	sum := h.Sum16()
-	if _, err = ww.Write([]uint8{uint8(sum), uint8(sum >> 8)}); err != nil {
+	if err = binary.Write(ww, binary.LittleEndian, sum); err != nil {
 		return
 	}
 	// return data
@@ -191,7 +191,7 @@ func (m *Setpoint) MarshalBinary() (data []byte, err error) {
 		return
 	}
 	sum := h.Sum16()
-	if _, err = ww.Write([]uint8{uint8(sum), uint8(sum >> 8)}); err != nil {
+	if err = binary.Write(ww, binary.LittleEndian, sum); err != nil {
 		return
 	}
 	// return data
@@ -218,7 +218,7 @@ func marshalBinary(addr RemoteAddress, msgtype uint8) (data []byte, err error) {
 		return
 	}
 	sum := h.Sum16()
-	if _, err = b.Write([]uint8{uint8(sum), uint8(sum >> 8)}); err != nil {
+	if err = binary.Write(ww, binary.LittleEndian, sum); err != nil {
 		return
 	}
 	// return contents
