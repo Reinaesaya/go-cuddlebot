@@ -70,6 +70,11 @@ func TestSetpoint(t *testing.T) {
 	})
 }
 
+func TestSleep(t *testing.T) {
+	testMarshalExpect(t, &Sleep{9},
+		[]byte{9, 'z', 0, 0, 181, 68})
+}
+
 func TestRunTests(t *testing.T) {
 	testMarshalExpect(t, &Test{7}, []byte{7, 't', 0, 0, 241, 215})
 }

@@ -32,6 +32,7 @@ const (
 	kPong              = '.' // respond to ping
 	kSetPID            = 'c' // send PID coefficients
 	kSetpoint          = 'g' // send setpoints
+	kSleep             = 'z' // deactivate motor output
 	kTest              = 't' // run internal tests
 	kValue             = 'v' // get position value
 
@@ -71,6 +72,9 @@ type SetpointValue struct {
 	Duration uint16 `json:"duration"` // offset 0x00, duration in ms
 	Setpoint uint16 `json:"setpoint"` // offset 0x02, setpoint
 }
+
+// Sleep message type.
+type Sleep simpleType
 
 // Test message type.
 type Test simpleType
@@ -196,6 +200,11 @@ func (m *Setpoint) MarshalBinary() (data []byte, err error) {
 	}
 	// return data
 	return b.Bytes(), nil
+}
+
+// Write sleep test message.
+func (m *Sleep) MarshalBinary() (data []byte, err error) {
+	return marshalBinary(m.Addr, kSleep)
 }
 
 // Write set test message.

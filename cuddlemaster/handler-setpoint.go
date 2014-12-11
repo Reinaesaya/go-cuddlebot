@@ -55,7 +55,7 @@ func setpointHandler(w http.ResponseWriter, req *http.Request, body io.Reader) e
 		return err
 	}
 
-	QueueSetpoint(&message)
+	QueueMessage(&message)
 
 	io.WriteString(w, `{"ok":true}`)
 

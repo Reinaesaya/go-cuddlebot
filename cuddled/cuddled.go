@@ -53,7 +53,7 @@ func main() {
 	l.Println("Connected to", *portname)
 
 	// update setpoints in background
-	go cuddlemaster.ListenForSetpointUpdates(port)
+	go cuddlemaster.SendQueuedMessagesTo(port)
 
 	// set debug
 	cuddlemaster.Debug = *debug
