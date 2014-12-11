@@ -10,13 +10,13 @@ import (
 
 type setpointMessage struct {
 	Addr      *msgtype.RemoteAddress `json:"addr"`
-	Delay     *uint16                `json:"delay"`
+	Delay     uint16                 `json:"delay"`
 	Loop      *uint16                `json:"loop"`
 	Setpoints *[]uint16              `json:"setpoints"`
 }
 
 func (s *setpointMessage) bind(m *msgtype.Setpoint) error {
-	if s.Addr == nil || s.Delay == nil || s.Loop == nil || s.Setpoints == nil {
+	if s.Addr == nil || s.Loop == nil || s.Setpoints == nil {
 		return InvalidMessageError
 	}
 
@@ -25,13 +25,14 @@ func (s *setpointMessage) bind(m *msgtype.Setpoint) error {
 	setpoints := make([]msgtype.SetpointValue, nsetpoints/2)
 
 	for i := 0; i < nsetpoints; i += 2 {
-		spvalue := setpoints[i/2]
-		spvalue.Duration = spvalues[i]
-		spvalue.Setpoint = spvalues[i+1]
+		setpoints[i/2] = msgtype.SetpointValue{
+			Duration: spvalues[i],
+			Setpoint: spvalues[i+1],
+		}
 	}
 
 	m.Addr = *s.Addr
-	m.Delay = *s.Delay
+	m.Delay = s.Delay
 	m.Loop = *s.Loop
 	m.Setpoints = setpoints
 
