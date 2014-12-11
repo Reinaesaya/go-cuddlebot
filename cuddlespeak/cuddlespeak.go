@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding"
 	"flag"
@@ -71,10 +72,14 @@ func runcmd(conn net.Conn, addr msgtype.RemoteAddress) {
 			fatalUsage()
 		}
 
+		kpS := flag.Arg(1)
+		kiS := flag.Arg(2)
+		kdS := flag.Arg(3)
+
 		var kp, ki, kd float32
-		fmt.Fscanf(bytes.NewBufferString(flag.Arg(1)), "%f", &kp)
-		fmt.Fscanf(bytes.NewBufferString(flag.Arg(2)), "%f", &ki)
-		fmt.Fscanf(bytes.NewBufferString(flag.Arg(3)), "%f", &kd)
+		fmt.Fscanf(bytes.NewBufferString(kpS), "%f", &kp)
+		fmt.Fscanf(bytes.NewBufferString(kiS), "%f", &ki)
+		fmt.Fscanf(bytes.NewBufferString(kdS), "%f", &kd)
 
 		if *debug {
 			log.Printf("parsed pid kp=%f ki=%f kd=%f", kp, ki, kd)
@@ -91,51 +96,67 @@ func runcmd(conn net.Conn, addr msgtype.RemoteAddress) {
 			log.Fatal(os.Stderr, "Error: duration and setpoint must be given in pairs")
 		}
 
-		var delayInt, loopInt int
+		delayS := flag.Arg(1)
+		loopS := flag.Arg(2)
 
-		fmt.Fscanf(bytes.NewBufferString(flag.Arg(1)), "%d", &delayInt)
-		fmt.Fscanf(bytes.NewBufferString(flag.Arg(2)), "%d", &loopInt)
+		var delay, loop int
+		fmt.Fscanf(bytes.NewBufferString(delayS), "%d", &delay)
+		if loopS == "forever" {
+			loop = 0xffff
+		} else {
+			fmt.Fscanf(bytes.NewBufferString(loopS), "%d", &loop)
+		}
 
-		if delayInt < 0 || loopInt < 0 {
+		if delay < 0 || loop < 0 {
 			log.Fatal(os.Stderr, "Error: delay and loop must be positive")
 		}
 
-		delay := uint16(delayInt)
-		loop := uint16(loopInt)
-
 		setpoints := make([]msgtype.SetpointValue, (flag.NArg()-3)/2)
 		for i := 3; i < flag.NArg(); i += 2 {
+			durationS := flag.Arg(i)
+			setpointS := flag.Arg(i + 1)
+
 			var duration, setpoint int
+			if durationS == "forever" {
+				duration = 0xffff
+			} else {
+				fmt.Fscanf(bytes.NewBufferString(durationS), "%d", &duration)
+			}
+			fmt.Fscanf(bytes.NewBufferString(setpointS), "%d", &setpoint)
 
-			fmt.Fscanf(bytes.NewBufferString(flag.Arg(i)), "%d", &duration)
-			fmt.Fscanf(bytes.NewBufferString(flag.Arg(i+1)), "%d", &setpoint)
-
-			if delayInt < 0 || loopInt < 0 {
+			if duration < 0 || setpoint < 0 {
 				log.Fatal(os.Stderr, "Error: duration and setpoint must be positive")
 			}
 
-			j := (i - 4) / 2
+			j := (i - 3) / 2
 
 			setpoints[j].Duration = uint16(duration)
 			setpoints[j].Setpoint = uint16(setpoint)
 		}
 
-		sendcmd(conn, &msgtype.Setpoint{addr, delay, loop, setpoints})
+		sendcmd(conn, &msgtype.Setpoint{addr,
+			uint16(delay), uint16(loop), setpoints})
 
 	case "ping":
 		sendcmd(conn, &msgtype.Ping{addr})
 		conn.SetReadDeadline(time.Now().Add(time.Second))
-		io.Copy(os.Stdout, conn)
+		buf := make([]byte, 1)
+		conn.Read(buf)
+		os.Stdout.Write(buf)
+		os.Stdout.WriteString("\n")
 
 	case "test":
 		sendcmd(conn, &msgtype.Test{addr})
-		conn.SetReadDeadline(time.Now().Add(time.Minute * 5))
-		io.Copy(os.Stdout, conn)
 
 	case "value":
 		sendcmd(conn, &msgtype.Value{addr})
 		conn.SetReadDeadline(time.Now().Add(time.Second))
-		io.Copy(os.Stdout, conn)
+		if line, _, err := bufio.NewReader(conn).ReadLine(); err != nil {
+			log.Fatalln(err)
+		} else {
+			os.Stdout.Write(line)
+			os.Stdout.WriteString("\n")
+		}
 
 	default:
 		fatalUsage()

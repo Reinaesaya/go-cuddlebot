@@ -2,7 +2,6 @@ package cuddlemaster
 
 import (
 	"log"
-	"net"
 	"os"
 	"os/exec"
 	"runtime"
@@ -11,7 +10,7 @@ import (
 	"github.com/mikepb/go-serial"
 )
 
-func OpenPort(name string) (net.Conn, error) {
+func OpenPort(name string) (*serial.Port, error) {
 
 	// http://projectgus.com/2011/10/notes-on-ftdi-latency-with-arduino/
 	// http://faumarz.blogspot.ca/2014/06/change-ftdi-usb-serial-latency-in-linux.html
