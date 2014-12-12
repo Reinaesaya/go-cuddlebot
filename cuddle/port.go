@@ -1,4 +1,4 @@
-package cuddlemaster
+package cuddle
 
 import (
 	"log"
@@ -44,12 +44,9 @@ func OpenPort(name string) (*serial.Port, error) {
 		//  execWithLogging("setserial", "/bin/stty", "-f", name, "115200", "raw")
 	}
 
-	return serial.Open(name, serial.Options{
-		Baudrate: 115200,
-		DataBits: 8,
-		StopBits: 1,
-		Parity:   serial.PARITY_NONE,
-	})
+	options := serial.RawOptions
+	options.BitRate = 115200
+	return options.Open(name)
 }
 
 func execWithLogging(name string, args ...string) {

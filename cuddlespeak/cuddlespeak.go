@@ -13,7 +13,7 @@ import (
 	"path"
 	"time"
 
-	"../cuddlemaster"
+	"../cuddle"
 	"../msgtype"
 )
 
@@ -42,7 +42,7 @@ func main() {
 	}
 
 	// open serial port
-	port, err := cuddlemaster.OpenPort(*portname)
+	port, err := cuddle.OpenPort(*portname)
 	if err != nil {
 		log.Fatalln(err)
 	}

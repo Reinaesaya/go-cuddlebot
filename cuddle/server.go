@@ -4,7 +4,7 @@ Cuddlemaster implements a web server that communicates with the
 Cuddlebot actuators.
 
 */
-package cuddlemaster
+package cuddle
 
 import (
 	"encoding/json"

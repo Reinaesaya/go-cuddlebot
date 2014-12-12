@@ -1,4 +1,4 @@
-package cuddlemaster
+package cuddle
 
 import (
 	"encoding"

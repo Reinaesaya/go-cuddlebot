@@ -16,7 +16,7 @@ import (
 
 	"github.com/stretchr/graceful"
 
-	"../cuddlemaster"
+	"../cuddle"
 )
 
 func main() {
@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// connect serial port
-	port, err := cuddlemaster.OpenPort(*portname)
+	port, err := cuddle.OpenPort(*portname)
 	if err != nil {
 		e.Fatalln(err)
 	}
@@ -53,12 +53,12 @@ func main() {
 	l.Println("Connected to", *portname)
 
 	// update setpoints in background
-	go cuddlemaster.SendQueuedMessagesTo(port)
+	go cuddle.SendQueuedMessagesTo(port)
 
 	// set debug
-	cuddlemaster.Debug = *debug
+	cuddle.Debug = *debug
 	// create server instance
-	mux := cuddlemaster.New()
+	mux := cuddle.New()
 
 	// run with graceful shutdown
 	graceful.Run(*listenaddr, time.Second, mux)

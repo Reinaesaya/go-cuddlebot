@@ -1,4 +1,4 @@
-package cuddlemaster
+package cuddle
 
 type Error struct {
 	OK      bool   `json:"ok"`
