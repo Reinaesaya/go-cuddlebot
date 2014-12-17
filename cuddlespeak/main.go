@@ -16,6 +16,7 @@ import (
 )
 
 var debug = flag.Bool("debug", false, "print debug messages")
+var n = flag.Bool("n", false, "parse arguments, but don't send command")
 
 func main() {
 	// define actuator flags
@@ -31,6 +32,7 @@ func main() {
 	// parse flags
 	flag.Usage = usage
 	flag.Parse()
+	args := flag.Args()
 
 	if flag.NArg() < 1 {
 		fatalUsage()
@@ -40,39 +42,42 @@ func main() {
 	}
 
 	// open serial port
-	port, err := cuddle.OpenPort(*portname)
-	if err != nil {
-		log.Fatalln(err)
+	var port io.ReadWriteCloser
+	if !*n {
+		port, err := cuddle.OpenPort(*portname)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		defer port.Close()
+		log.Println("Connected to", *portname)
 	}
-	defer port.Close()
-	log.Println("Connected to", *portname)
 
 	// run command
 	switch true {
 	case *ribs:
-		runcmd(port, msgtype.RibsAddress)
+		runcmd(port, msgtype.RibsAddress, args)
 	case *purr:
-		runcmd(port, msgtype.PurrAddress)
+		runcmd(port, msgtype.PurrAddress, args)
 	case *spine:
-		runcmd(port, msgtype.SpineAddress)
+		runcmd(port, msgtype.SpineAddress, args)
 	case *headx:
-		runcmd(port, msgtype.HeadXAddress)
+		runcmd(port, msgtype.HeadXAddress, args)
 	case *heady:
-		runcmd(port, msgtype.HeadYAddress)
+		runcmd(port, msgtype.HeadYAddress, args)
 	}
 }
 
-func runcmd(conn io.ReadWriter, addr msgtype.RemoteAddress) {
+func runcmd(conn io.ReadWriter, addr msgtype.RemoteAddress, args []string) {
+	cmd, args := args[0], args[1:]
+
 	// run command
-	switch flag.Arg(0) {
+	switch cmd {
 	case "setpid":
-		if flag.NArg() < 4 {
+		if len(args) != 3 {
 			fatalUsage()
 		}
 
-		kpS := flag.Arg(1)
-		kiS := flag.Arg(2)
-		kdS := flag.Arg(3)
+		kpS, kiS, kdS := args[0], args[1], args[2]
 
 		var kp, ki, kd float32
 		fmt.Fscanf(bytes.NewBufferString(kpS), "%f", &kp)
@@ -86,16 +91,11 @@ func runcmd(conn io.ReadWriter, addr msgtype.RemoteAddress) {
 		sendcmd(conn, &msgtype.SetPID{addr, kp, ki, kd})
 
 	case "setpoint":
-		if flag.NArg() < 5 {
+		if len(args) < 3 {
 			fatalUsage()
 		}
 
-		if flag.NArg()%2 != 1 {
-			log.Fatal(os.Stderr, "Error: duration and setpoint must be given in pairs")
-		}
-
-		delayS := flag.Arg(1)
-		loopS := flag.Arg(2)
+		delayS, loopS, args := args[0], args[1], args[2:]
 
 		var delay, loop int
 		fmt.Fscanf(bytes.NewBufferString(delayS), "%d", &delay)
@@ -106,13 +106,16 @@ func runcmd(conn io.ReadWriter, addr msgtype.RemoteAddress) {
 		}
 
 		if delay < 0 || loop < 0 {
-			log.Fatal(os.Stderr, "Error: delay and loop must be positive")
+			log.Fatalln("Error: delay and loop must be positive")
 		}
 
-		setpoints := make([]msgtype.SetpointValue, (flag.NArg()-3)/2)
-		for i := 3; i < flag.NArg(); i += 2 {
-			durationS := flag.Arg(i)
-			setpointS := flag.Arg(i + 1)
+		if len(args)%2 != 0 {
+			log.Fatalln("Error: duration and setpoint must be given in pairs")
+		}
+
+		setpoints := make([]msgtype.SetpointValue, len(args)/2)
+		for i := 0; i < len(args); i += 2 {
+			durationS, setpointS := args[i], args[i+1]
 
 			var duration, setpoint int
 			if durationS == "forever" {
@@ -123,10 +126,10 @@ func runcmd(conn io.ReadWriter, addr msgtype.RemoteAddress) {
 			fmt.Fscanf(bytes.NewBufferString(setpointS), "%d", &setpoint)
 
 			if duration < 0 || setpoint < 0 {
-				log.Fatal(os.Stderr, "Error: duration and setpoint must be positive")
+				log.Fatalln("Error: duration and setpoint must be positive")
 			}
 
-			j := (i - 3) / 2
+			j := i / 2
 
 			setpoints[j].Duration = uint16(duration)
 			setpoints[j].Setpoint = uint16(setpoint)
@@ -136,22 +139,40 @@ func runcmd(conn io.ReadWriter, addr msgtype.RemoteAddress) {
 			uint16(delay), uint16(loop), setpoints})
 
 	case "ping":
+		if len(args) != 0 {
+			fatalUsage()
+		}
+
 		sendcmd(conn, &msgtype.Ping{addr})
-		buf := make([]byte, 1)
-		conn.Read(buf)
-		os.Stdout.Write(buf)
-		os.Stdout.WriteString("\n")
+
+		if !*n {
+			buf := make([]byte, 1)
+			conn.Read(buf)
+			os.Stdout.Write(buf)
+			os.Stdout.WriteString("\n")
+		}
 
 	case "test":
+		if len(args) != 0 {
+			fatalUsage()
+		}
+
 		sendcmd(conn, &msgtype.Test{addr})
 
 	case "value":
+		if len(args) != 0 {
+			fatalUsage()
+		}
+
 		sendcmd(conn, &msgtype.Value{addr})
-		if line, _, err := bufio.NewReader(conn).ReadLine(); err != nil {
-			log.Fatalln(err)
-		} else {
-			os.Stdout.Write(line)
-			os.Stdout.WriteString("\n")
+
+		if !*n {
+			if line, _, err := bufio.NewReader(conn).ReadLine(); err != nil {
+				log.Fatalln(err)
+			} else {
+				os.Stdout.Write(line)
+				os.Stdout.WriteString("\n")
+			}
 		}
 
 	default:
@@ -159,15 +180,19 @@ func runcmd(conn io.ReadWriter, addr msgtype.RemoteAddress) {
 	}
 
 	if *debug {
-		log.Printf("sent %s message to address %d", flag.Arg(1), addr)
+		log.Printf("sent %s message to address %d", cmd, addr)
 	}
 }
 
 func sendcmd(conn io.Writer, m encoding.BinaryMarshaler) {
 	if bs, err := m.MarshalBinary(); err != nil {
 		log.Fatalln(err)
-	} else if _, err := conn.Write(bs); err != nil {
-		log.Fatalln(err)
+	} else if !*n {
+		if _, err := conn.Write(bs); err != nil {
+			log.Fatalln(err)
+		}
+	} else {
+		log.Println("ok", m)
 	}
 }
 
