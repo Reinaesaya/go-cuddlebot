@@ -8,10 +8,8 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"os"
 	"path"
-	"time"
 
 	"../cuddle"
 	"../msgtype"
@@ -64,7 +62,7 @@ func main() {
 	}
 }
 
-func runcmd(conn net.Conn, addr msgtype.RemoteAddress) {
+func runcmd(conn io.ReadWriter, addr msgtype.RemoteAddress) {
 	// run command
 	switch flag.Arg(0) {
 	case "setpid":
@@ -139,7 +137,6 @@ func runcmd(conn net.Conn, addr msgtype.RemoteAddress) {
 
 	case "ping":
 		sendcmd(conn, &msgtype.Ping{addr})
-		conn.SetReadDeadline(time.Now().Add(time.Second))
 		buf := make([]byte, 1)
 		conn.Read(buf)
 		os.Stdout.Write(buf)
@@ -150,7 +147,6 @@ func runcmd(conn net.Conn, addr msgtype.RemoteAddress) {
 
 	case "value":
 		sendcmd(conn, &msgtype.Value{addr})
-		conn.SetReadDeadline(time.Now().Add(time.Second))
 		if line, _, err := bufio.NewReader(conn).ReadLine(); err != nil {
 			log.Fatalln(err)
 		} else {

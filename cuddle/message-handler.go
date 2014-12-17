@@ -2,20 +2,18 @@ package cuddle
 
 import (
 	"encoding"
+	"io"
 	"log"
-	"net"
 	"os"
-	"time"
 )
 
 var messageQueue = make(chan encoding.BinaryMarshaler, 10)
 var messageQueueOut = log.New(os.Stdout, "[message] ", 0)
 var messageQueueErr = log.New(os.Stderr, "[message] ", 0)
 
-func SendQueuedMessagesTo(p net.Conn) {
+func SendQueuedMessagesTo(p io.ReadWriteCloser) {
 	for {
 		message := <-messageQueue
-		p.SetWriteDeadline(time.Now().Add(10 * time.Millisecond))
 		if buf, err := message.MarshalBinary(); err != nil {
 			messageQueueErr.Printf("Failed marshal message %x %x",
 				err.Error(), message)

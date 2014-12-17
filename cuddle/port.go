@@ -1,16 +1,15 @@
 package cuddle
 
 import (
+	"io"
 	"log"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
-
-	"github.com/mikepb/go-serial"
 )
 
-func OpenPort(name string) (*serial.Port, error) {
+func OpenPort(name string) (io.ReadWriteCloser, error) {
 
 	// http://projectgus.com/2011/10/notes-on-ftdi-latency-with-arduino/
 	// http://faumarz.blogspot.ca/2014/06/change-ftdi-usb-serial-latency-in-linux.html
@@ -38,15 +37,13 @@ func OpenPort(name string) (*serial.Port, error) {
 	*/
 
 	if runtime.GOOS == "linux" {
-		execWithLogging("setserial", "/bin/setserial", name, "low_latency")
-		//  execWithLogging("stty", "/bin/stty", "-F", name, "115200", "raw")
-		// } else if runtime.GOOS == "darwin" || runtime.GOOS == "freebsd" {
-		//  execWithLogging("setserial", "/bin/stty", "-f", name, "115200", "raw")
+		// execWithLogging("setserial", "/bin/setserial", name, "low_latency")
+		execWithLogging("stty", "/bin/stty", "-F", name, "115200", "raw")
+	} else if runtime.GOOS == "darwin" || runtime.GOOS == "freebsd" {
+		execWithLogging("setserial", "/bin/stty", "-f", name, "115200", "raw")
 	}
 
-	options := serial.RawOptions
-	options.BitRate = 115200
-	return options.Open(name)
+	return os.OpenFile(name, os.O_RDWR, 0600)
 }
 
 func execWithLogging(name string, args ...string) {
