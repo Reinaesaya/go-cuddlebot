@@ -3,7 +3,7 @@ LINUX_BIN_DIR ?= bin-arm-linux
 EXECUTABLES = cuddled cuddlespeak
 EXECUTABLES_DEST = $(EXECUTABLES:%=$(BIN_DIR)/%) $(EXECUTABLES:%=$(LINUX_BIN_DIR)/%)
 
-build: $(EXECUTABLES_DEST)
+build: $(EXECUTABLES) $(EXECUTABLES_DEST)
 
 clean:
 	rm -fr $(BIN_DIR) $(LINUX_BIN_DIR)
