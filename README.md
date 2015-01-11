@@ -13,6 +13,7 @@ the Go package dependencies:
 go get github.com/codegangsta/negroni
 go get github.com/phyber/negroni-gzip/gzip
 go get github.com/stretchr/graceful
+go get github.com/mikepb/go-crc16
 ```
 
 These packages include the [Negroni][negroni] HTTP Middleware for Go and
