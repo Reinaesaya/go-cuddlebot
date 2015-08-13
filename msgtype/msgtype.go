@@ -32,6 +32,7 @@ const (
 	kPong              = '.' // respond to ping
 	kSetPID            = 'c' // send PID coefficients
 	kSetpoint          = 'g' // send setpoints
+	kSmooth		   = 'h' // send interval setpoints
 	kSleep             = 'z' // deactivate motor output
 	kTest              = 't' // run internal tests
 	kValue             = 'v' // get position value
@@ -71,6 +72,12 @@ type Setpoint struct {
 type SetpointValue struct {
 	Duration uint16 `json:"duration"` // offset 0x00, duration in ms
 	Setpoint uint16 `json:"setpoint"` // offset 0x02, setpoint
+}
+
+type Smooth struct {
+	Addr	 RemoteAddress	`json:"addr"`
+	Time	 uint16		`json:"time"`
+	Setpoint []SetpointValue `json:"setpoint"`
 }
 
 // Sleep message type.
@@ -194,6 +201,38 @@ func (m *Setpoint) MarshalBinary() (data []byte, err error) {
 	if err = binary.Write(ww, binary.LittleEndian, m.Setpoints); err != nil {
 		return
 	}
+	sum := h.Sum16()
+	if err = binary.Write(ww, binary.LittleEndian, sum); err != nil {
+		return
+	}
+	// return data
+	return b.Bytes(), nil
+}
+
+// Write smooth motion message
+func (m *Smooth) MarshalBinary() (data []byte, err error) {
+	var b bytes.Buffer
+	h := crc16.NewANSI()
+	ww := io.MultiWriter(&b, h)
+	// write header
+	if _, err = ww.Write([]byte{uint8(m.Addr), kSmooth}); err != nil {
+		return
+	}
+	// write size
+	size := uint16(6)
+	if err = binary.Write(ww, binary.LittleEndian, size); err != nil {
+		return
+	}
+	// write data
+	d := []uint16{m.Time}
+	if err = binary.Write(ww, binary.LittleEndian, d); err != nil {
+		return
+	}
+	// write setpoint data
+	if err = binary.Write(ww, binary.LittleEndian, m.Setpoint); err != nil {
+		return
+	}
+	// write checksum
 	sum := h.Sum16()
 	if err = binary.Write(ww, binary.LittleEndian, sum); err != nil {
 		return
