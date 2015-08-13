@@ -19,36 +19,53 @@ If version is below 1.4, or gives an error, install Go with the following steps.
 If Go version exists, remove it:
 ```bash
 # Remove base directories:
-`sudo rm -rf /usr/lib/go`
+sudo rm -rf /usr/lib/go
 # or
-`sudo rm -rf /usr/local/go`
+sudo rm -rf /usr/local/go
 # or wherever go had been stored
 
 # Remove existing golang directories:
-`sudo apt-get remove golang-go`.
+sudo apt-get remove golang-go
 ```
 
 Install correct Go version:
 ```bash
-# Install by source
+## Install by source
+
+# Navigate to Go build location
 cd /usr/lib/
-git clone https://go.googlesource.com/go
+# Clone source code
+sudo git clone https://go.googlesource.com/go
+# Navigate in to folder
 cd go
-git checkout go1.4.1
+# Checkout correct version
+sudo git checkout go1.4.1
+# Prepare for build
 cd src
+# Build
 sudo ./all.bash
 
-# Setup Go environment
-mkdir $HOME/go
+
+## Setup Go environment
+
+# Make go directory in home directory
+cd ~
+mkdir go
+# Setup paths
+# It should be of note that if the terminal is closed these may have to be set up again
 export PATH=$PATH:/usr/lib/go/bin
 export GOPATH=$HOME/go
 export GOROOT=/usr/lib/go
-# Check
+# Check environment setup completion
 go env
 go version
 
-# Setup build environment
+
+## Setup build environment
+
+# Navigate to environment setup location
 cd /usr/lib/go/src/
+# Setup make build environment for cuddled and cuddlespeak
 GOOS=linux GOARCH=arm GOARM=7 ./make.bash --no-clean
 ```
 
