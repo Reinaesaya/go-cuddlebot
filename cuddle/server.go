@@ -24,6 +24,7 @@ func New() http.Handler {
 	http.HandleFunc("/1/setpoint.json", makeHandler(setpointHandler))
 	http.HandleFunc("/1/sleep.json", makeHandler(sleepHandler))
 	http.HandleFunc("/1/smooth.json", makeHandler(smoothHandler))
+	http.HandleFunc("/1/setpid.json", makeHandler(setpidHandler))
 	http.Handle("/1/data.json", negroni.New(
 		gzip.Gzip(gzip.DefaultCompression),
 		negroni.Wrap(makeHandler(dataHandler)),
